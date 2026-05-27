@@ -22,8 +22,9 @@ The meter watches for state transitions:
 When a transition into waiting state is detected, the meter:
 
 1. Re-renders the relevant panel with the waiting animation.
-2. Calls `Device/PlayBuzzer` on the Divoom Times Gate.
-3. Falls back to a macOS beep if `MAC_BEEP_FALLBACK=1` and the Divoom buzzer
+2. Waits briefly so the panel refresh does not interrupt the sound.
+3. Calls `Device/PlayBuzzer` on the Divoom Times Gate.
+4. Falls back to a macOS beep if `MAC_BEEP_FALLBACK=1` and the Divoom buzzer
    call fails.
 
 It should beep once per transition into waiting state. It should not beep on
@@ -37,9 +38,10 @@ CLAUDE_WAITING_AUTO=1
 BEEP_ON_CODEX_WAITING=1
 BEEP_ON_CLAUDE_WAITING=1
 DIVOOM_BEEP=1
-DIVOOM_BEEP_TOTAL_MS=1200
-DIVOOM_BEEP_ACTIVE_MS=200
-DIVOOM_BEEP_OFF_MS=150
+DIVOOM_BEEP_TOTAL_MS=1800
+DIVOOM_BEEP_ACTIVE_MS=300
+DIVOOM_BEEP_OFF_MS=140
+DIVOOM_BEEP_AFTER_PANEL_DELAY_MS=250
 MAC_BEEP_FALLBACK=1
 STATE_REFRESH_SECONDS=15
 ```
@@ -66,7 +68,7 @@ import os
 from dotenv import load_dotenv
 import divoom
 
-load_dotenv()
+load_dotenv(".env")
 print(divoom.play_buzzer(os.environ["DIVOOM_IP"]))
 PY
 ```

@@ -10,6 +10,14 @@ import main
 
 
 class UsageDisplayTests(unittest.TestCase):
+    def setUp(self):
+        main.CODEX_WAITING_INPUT = False
+        main.LAST_CODEX_WAITING_INPUT = None
+        main.LAST_CODEX_USAGE = None
+        main.CLAUDE_WAITING_INPUT = False
+        main.LAST_CLAUDE_WAITING_INPUT = None
+        main.LAST_CLAUDE_USAGE = None
+
     def test_unknown_usage_is_not_known(self):
         usage = {"session": -1.0, "week": -1.0, "design": -1.0}
 
@@ -96,19 +104,37 @@ class UsageDisplayTests(unittest.TestCase):
         beep_for_interaction.assert_called_once()
 
     def test_waiting_display_refreshes_on_state_change(self):
-        main.CODEX_WAITING_INPUT = False
+        main.CODEX_WAITING_INPUT = True
         main.LAST_CODEX_WAITING_INPUT = False
         main.LAST_CODEX_USAGE = {"primary": 0.2, "secondary": 0.4, "context": 0.1}
 
         with patch("main.refresh_codex_interaction_state", return_value=True), \
              patch("main.refresh_claude_interaction_state", return_value=False), \
              patch("main.send_codex_usage", return_value=True) as send_codex_usage, \
-             patch("main.send_static_panels", return_value=True) as send_static_panels:
+             patch("main.send_static_panels", return_value=True) as send_static_panels, \
+             patch("main.emit_pending_beeps") as emit_pending_beeps:
             ok = main.refresh_waiting_display_if_needed()
 
         self.assertTrue(ok)
         send_codex_usage.assert_called_once_with(main.LAST_CODEX_USAGE)
         send_static_panels.assert_called_once()
+        emit_pending_beeps.assert_called_once_with(True, False)
+
+    def test_waiting_display_beeps_after_panel_refresh(self):
+        calls = []
+        main.CODEX_WAITING_INPUT = True
+        main.LAST_CODEX_WAITING_INPUT = False
+        main.LAST_CODEX_USAGE = {"primary": 0.2, "secondary": 0.4, "context": 0.1}
+
+        with patch("main.refresh_codex_interaction_state", return_value=True), \
+             patch("main.refresh_claude_interaction_state", return_value=False), \
+             patch("main.send_codex_usage", side_effect=lambda usage: calls.append("codex-panel") or True), \
+             patch("main.send_static_panels", side_effect=lambda: calls.append("static-panels") or True), \
+             patch("main.emit_pending_beeps", side_effect=lambda codex, claude: calls.append((codex, claude))):
+            ok = main.refresh_waiting_display_if_needed()
+
+        self.assertTrue(ok)
+        self.assertEqual(calls, ["codex-panel", "static-panels", (True, False)])
 
     def test_claude_waiting_transition_beeps_once(self):
         main.CLAUDE_WAITING_INPUT = False
@@ -125,19 +151,21 @@ class UsageDisplayTests(unittest.TestCase):
         beep_for_interaction.assert_called_once_with("CLAUDE")
 
     def test_claude_waiting_display_refreshes_on_state_change(self):
-        main.CLAUDE_WAITING_INPUT = False
+        main.CLAUDE_WAITING_INPUT = True
         main.LAST_CLAUDE_WAITING_INPUT = False
         main.LAST_CLAUDE_USAGE = {"session": 0.2, "week": 0.4, "design": 0.1}
 
         with patch("main.refresh_codex_interaction_state", return_value=False), \
              patch("main.refresh_claude_interaction_state", return_value=True), \
              patch("main.send_claude_usage", return_value=True) as send_claude_usage, \
-             patch("main.send_static_panels", return_value=True) as send_static_panels:
+             patch("main.send_static_panels", return_value=True) as send_static_panels, \
+             patch("main.emit_pending_beeps") as emit_pending_beeps:
             ok = main.refresh_waiting_display_if_needed()
 
         self.assertTrue(ok)
         send_claude_usage.assert_called_once_with(main.LAST_CLAUDE_USAGE)
         send_static_panels.assert_called_once()
+        emit_pending_beeps.assert_called_once_with(False, True)
 
     def test_interaction_beep_prefers_divoom_buzzer(self):
         fake_divoom = types.SimpleNamespace()
@@ -154,7 +182,8 @@ class UsageDisplayTests(unittest.TestCase):
             },
         ), \
              patch.dict(sys.modules, {"divoom": fake_divoom}), \
-             patch("subprocess.run") as subprocess_run:
+             patch("subprocess.run") as subprocess_run, \
+             contextlib.redirect_stdout(io.StringIO()):
             main.beep_for_interaction("CODEX")
 
         subprocess_run.assert_not_called()

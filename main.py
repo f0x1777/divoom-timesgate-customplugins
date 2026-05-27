@@ -137,18 +137,21 @@ def beep_for_interaction(provider: str = "CODEX"):
     if not env_flag(f"BEEP_ON_{provider}_WAITING", env_flag("BEEP_ON_WAITING", True)):
         return
 
-    if env_flag("DIVOOM_BEEP", True):
+    if env_flag("DIVOOM_BEEP", True) and DIVOOM_IP:
         try:
             import divoom
             if divoom.play_buzzer(
                 DIVOOM_IP,
-                int(os.getenv("DIVOOM_BEEP_TOTAL_MS", "1200")),
-                int(os.getenv("DIVOOM_BEEP_ACTIVE_MS", "200")),
-                int(os.getenv("DIVOOM_BEEP_OFF_MS", "150")),
+                int(os.getenv("DIVOOM_BEEP_TOTAL_MS", "1800")),
+                int(os.getenv("DIVOOM_BEEP_ACTIVE_MS", "300")),
+                int(os.getenv("DIVOOM_BEEP_OFF_MS", "140")),
             ):
+                print(f"[meter] Divoom beep OK ({provider})")
                 return
         except Exception as e:
             print(f"[meter] Divoom beep failed: {e}")
+    elif env_flag("DIVOOM_BEEP", True):
+        print("[meter] Divoom beep skipped: DIVOOM_IP is empty")
 
     if not env_flag("MAC_BEEP_FALLBACK", True):
         return
@@ -156,6 +159,18 @@ def beep_for_interaction(provider: str = "CODEX"):
         subprocess.run(["osascript", "-e", "beep 1"], timeout=2, check=False)
     except Exception as e:
         print(f"[meter] Beep failed: {e}")
+
+
+def emit_pending_beeps(codex_waiting: bool = False, claude_waiting: bool = False):
+    if not codex_waiting and not claude_waiting:
+        return
+    delay_ms = int(os.getenv("DIVOOM_BEEP_AFTER_PANEL_DELAY_MS", "250"))
+    if env_flag("DIVOOM_BEEP", True) and delay_ms > 0:
+        time.sleep(delay_ms / 1000)
+    if codex_waiting:
+        beep_for_interaction("CODEX")
+    if claude_waiting:
+        beep_for_interaction("CLAUDE")
 
 
 def refresh_codex_interaction_state(beep: bool = True) -> bool:
@@ -359,8 +374,10 @@ def print_codex_usage(usage: dict):
 
 
 def run_once(provider: str = "both", verbose: bool = True, hold_secs: float = VIEW_HOLD_SECS):
-    refresh_codex_interaction_state(beep=True)
-    refresh_claude_interaction_state(beep=True)
+    codex_changed = refresh_codex_interaction_state(beep=False)
+    claude_changed = refresh_claude_interaction_state(beep=False)
+    codex_should_beep = codex_changed and CODEX_WAITING_INPUT
+    claude_should_beep = claude_changed and CLAUDE_WAITING_INPUT
     if provider == "both":
         provider_order = ["codex", "claude"]
     else:
@@ -396,20 +413,24 @@ def run_once(provider: str = "both", verbose: bool = True, hold_secs: float = VI
         return False
     if provider == "both":
         ok &= send_static_panels()
+    emit_pending_beeps(codex_should_beep, claude_should_beep)
     return ok
 
 
 def refresh_waiting_display_if_needed() -> bool:
-    codex_changed = refresh_codex_interaction_state(beep=True)
-    claude_changed = refresh_claude_interaction_state(beep=True)
+    codex_changed = refresh_codex_interaction_state(beep=False)
+    claude_changed = refresh_claude_interaction_state(beep=False)
     if not codex_changed and not claude_changed:
         return False
+    codex_should_beep = codex_changed and CODEX_WAITING_INPUT
+    claude_should_beep = claude_changed and CLAUDE_WAITING_INPUT
     ok = True
     if codex_changed and LAST_CODEX_USAGE and usage_is_known(LAST_CODEX_USAGE):
         ok &= send_codex_usage(LAST_CODEX_USAGE)
     if claude_changed and LAST_CLAUDE_USAGE and usage_is_known(LAST_CLAUDE_USAGE):
         ok &= send_claude_usage(LAST_CLAUDE_USAGE)
     ok &= send_static_panels()
+    emit_pending_beeps(codex_should_beep, claude_should_beep)
     return ok
 
 

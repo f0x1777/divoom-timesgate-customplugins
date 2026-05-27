@@ -93,8 +93,9 @@ between full usage refreshes. When the state changes from active to waiting,
 the meter:
 
 1. Animates the relevant panel.
-2. Calls the Divoom Times Gate buzzer.
-3. Falls back to a macOS beep only if the Divoom buzzer fails.
+2. Waits briefly so the panel refresh does not interrupt the sound.
+3. Calls the Divoom Times Gate buzzer.
+4. Falls back to a macOS beep only if the Divoom buzzer fails.
 
 Support matrix:
 
@@ -116,9 +117,10 @@ CLAUDE_WAITING_AUTO=1
 BEEP_ON_CODEX_WAITING=1
 BEEP_ON_CLAUDE_WAITING=1
 DIVOOM_BEEP=1
-DIVOOM_BEEP_TOTAL_MS=1200
-DIVOOM_BEEP_ACTIVE_MS=200
-DIVOOM_BEEP_OFF_MS=150
+DIVOOM_BEEP_TOTAL_MS=1800
+DIVOOM_BEEP_ACTIVE_MS=300
+DIVOOM_BEEP_OFF_MS=140
+DIVOOM_BEEP_AFTER_PANEL_DELAY_MS=250
 MAC_BEEP_FALLBACK=1
 STATE_REFRESH_SECONDS=15
 ```
@@ -128,9 +130,9 @@ The Divoom command used is:
 ```json
 {
   "Command": "Device/PlayBuzzer",
-  "ActiveTimeInCycle": 200,
-  "OffTimeInCycle": 150,
-  "PlayTotalTime": 1200
+  "ActiveTimeInCycle": 300,
+  "OffTimeInCycle": 140,
+  "PlayTotalTime": 1800
 }
 ```
 
@@ -144,12 +146,12 @@ import os
 from dotenv import load_dotenv
 import divoom
 
-load_dotenv()
+load_dotenv(".env")
 ok = divoom.play_buzzer(
     os.environ["DIVOOM_IP"],
-    play_total_time=1200,
-    active_time_in_cycle=200,
-    off_time_in_cycle=150,
+    play_total_time=1800,
+    active_time_in_cycle=300,
+    off_time_in_cycle=140,
 )
 print(f"Divoom buzzer test: {ok}")
 PY
