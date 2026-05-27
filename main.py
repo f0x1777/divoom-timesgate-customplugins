@@ -383,6 +383,8 @@ def send_static_panels() -> bool:
     ok &= divoom.send_image_panel(DIVOOM_IP, 1, "openai-logo.gif", render_openai_logo_panel(codex_waiting_input()))
     if CENTER_PANEL == "ops":
         ok &= divoom.send_image_panel(DIVOOM_IP, 2, "ops.gif", render_ops_center_panel())
+    elif CENTER_PANEL == "health":
+        ok &= divoom.send_image_panel(DIVOOM_IP, 2, "health.gif", render_health_center_panel())
     else:
         ok &= divoom.send_image_panel(DIVOOM_IP, 2, "center.gif", render_gengar_panel())
     ok &= divoom.send_image_panel(DIVOOM_IP, 3, "clawd.gif", render_clawd_panel(claude_waiting_input()))
@@ -399,6 +401,13 @@ def render_ops_center_panel() -> bytes:
         get_resources(),
         [],
     )
+
+
+def render_health_center_panel() -> bytes:
+    from dashboard_renderer import render_health_panel
+    from service_health import get_health
+
+    return render_health_panel(get_health(max_checks=int(os.getenv("HEALTH_MAX_CHECKS", "5"))))
 
 
 def get_claude_usage() -> dict:

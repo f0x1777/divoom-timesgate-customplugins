@@ -386,6 +386,51 @@ def render_ops_panel(
     return _save_gif([img], duration=1000)
 
 
+def render_health_panel(health: dict[str, Any]) -> bytes:
+    img = _base("#070B10")
+    draw = ImageDraw.Draw(img)
+
+    checks = list(health.get("checks") or [])
+    ok_count = sum(1 for item in checks if item.get("ok"))
+    total = len(checks)
+    color = "#34D399" if ok_count == total and total else "#FB7185"
+    draw.text((5, 4), "SVC", font=FONT_MED, fill="#CBD5E1")
+    draw.text((48, 2), f"{ok_count}/{total}", font=FONT_BIG, fill=color)
+    draw.line((5, 28, 122, 28), fill="#1E293B")
+
+    y = 34
+    for item in checks[:5]:
+        row_color = "#34D399" if item.get("ok") else "#FB7185"
+        label = str(item.get("label", "?"))[:5]
+        detail = str(item.get("detail", "--"))[:8]
+        draw.ellipse((5, y + 2, 12, y + 9), fill=row_color)
+        draw.text((17, y), label, font=FONT_ROW, fill="#FFFFFF")
+        draw.text((61, y + 1), "OK" if item.get("ok") else "FAIL", font=FONT_SMALL, fill=row_color)
+        draw.text((91, y + 1), detail, font=FONT_TINY, fill="#94A3B8")
+        y += 15
+
+    tailscale = health.get("tailscale") or {}
+    draw.line((5, 111, 122, 111), fill="#1E293B")
+    ts_ok = bool(tailscale.get("ok"))
+    ts_color = "#34D399" if ts_ok else "#FB7185"
+    state = str(tailscale.get("state", "--"))[:8].upper()
+    peers = tailscale.get("peers", -1)
+    peers_text = _compact_count(peers)
+    draw.text((5, 116), "TS", font=FONT_ROW, fill="#94A3B8")
+    draw.text((28, 116), "OK" if ts_ok else "OFF", font=FONT_ROW, fill=ts_color)
+    draw.text((62, 117), state, font=FONT_SMALL, fill="#CBD5E1")
+    draw.text((104, 117), peers_text, font=FONT_SMALL, fill="#CBD5E1")
+    return _save_gif([img], duration=1000)
+
+
+def _compact_count(value: Any) -> str:
+    if not isinstance(value, int) or value < 0:
+        return "--"
+    if value >= 1000:
+        return f"{value / 1000:.1f}K"
+    return str(value)
+
+
 def _draw_metric_bar(draw: ImageDraw.ImageDraw, x: int, y: int, label: str, value: Any, color: str):
     text = _pct_value(value)
     draw.text((x, y), label, font=FONT_ROW, fill="#94A3B8")

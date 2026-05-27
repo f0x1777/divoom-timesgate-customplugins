@@ -11,7 +11,7 @@ Current integrations:
 - Divoom Times Gate buzzer alerts via `Device/PlayBuzzer`.
 - Optional audible alerts when a supported AI app finishes a request or needs
   user interaction.
-- Optional center "ops" panel with markets, local resources, and calendar.
+- Optional center panels for ops telemetry and service health.
 
 ## Screen Layout
 
@@ -238,6 +238,37 @@ endpoint, a crypto-market USD quote.
 
 Calendar support exists in the provider layer for future/alternate panels, but
 the compact ops panel uses the space for network ingress/egress by default.
+
+## Service Health Panel
+
+Set `CENTER_PANEL=health` to replace the center GIF with service checks and
+Tailscale status:
+
+```env
+CENTER_PANEL=health
+HEALTH_CHECKS=WEB:http:http://localhost:3000,API:http:http://localhost:8000/health,DB:tcp:localhost:5432
+HEALTH_MAX_CHECKS=5
+HEALTH_TIMEOUT_SECONDS=1.5
+TAILSCALE_HEALTH=1
+```
+
+Health check format:
+
+```text
+LABEL:http:URL
+LABEL:tcp:host:port
+LABEL:cmd:/path/to/command --flag
+```
+
+Examples:
+
+```env
+HEALTH_CHECKS=WEB:http:http://localhost:3000,API:http:http://localhost:8787/health,PG:tcp:localhost:5432
+HEALTH_CHECKS=VITE:http:http://localhost:5173,REDIS:tcp:localhost:6379,DOCKER:cmd:docker ps
+```
+
+The panel shows an aggregate `SVC ok/total`, up to five rows with `OK` or
+`FAIL`, and a bottom `TS` row for Tailscale/VPN state.
 
 ## What Else Can This Show?
 

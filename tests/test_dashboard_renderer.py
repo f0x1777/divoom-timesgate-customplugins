@@ -31,6 +31,25 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)
         self.assertEqual(dashboard_renderer._bar_fill_width(150, 68), 68)
 
+    def test_health_panel_renders_bytes(self):
+        gif = dashboard_renderer.render_health_panel(
+            {
+                "checks": [
+                    {"label": "WEB", "ok": True, "detail": "200"},
+                    {"label": "API", "ok": False, "detail": "timeout"},
+                ],
+                "tailscale": {"ok": True, "state": "running", "peers": 3},
+            }
+        )
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+
+    def test_compact_count_formats_large_tailscale_peer_counts(self):
+        self.assertEqual(dashboard_renderer._compact_count(-1), "--")
+        self.assertEqual(dashboard_renderer._compact_count(42), "42")
+        self.assertEqual(dashboard_renderer._compact_count(1351), "1.4K")
+
     def test_openai_logo_spin_generates_multiple_frames(self):
         gif = self._render_test_logo({"OPENAI_LOGO_ANIMATION": "spin", "OPENAI_LOGO_SPIN_FRAMES": "8"})
 
