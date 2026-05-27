@@ -31,6 +31,7 @@ STATE_REFRESH_SECS = int(os.getenv("STATE_REFRESH_SECONDS", "15"))
 VIEW_HOLD_SECS = float(os.getenv("DIVOOM_VIEW_HOLD_SECONDS", "5"))
 ANIM_SPEED_MS  = 600  # ms por frame de la animación del claw
 AUTO_DISCOVER  = os.getenv("DIVOOM_AUTO_DISCOVER", "1").lower() not in ("0", "false", "no")
+CENTER_PANEL    = os.getenv("CENTER_PANEL", "gif").lower()
 
 CODEX_WAITING_INPUT = False
 LAST_CODEX_WAITING_INPUT: bool | None = None
@@ -310,9 +311,25 @@ def send_static_panels() -> bool:
 
     ok = True
     ok &= divoom.send_image_panel(DIVOOM_IP, 1, "openai-logo.gif", render_openai_logo_panel(codex_waiting_input()))
-    ok &= divoom.send_image_panel(DIVOOM_IP, 2, "gengar.gif", render_gengar_panel())
+    if CENTER_PANEL == "ops":
+        ok &= divoom.send_image_panel(DIVOOM_IP, 2, "ops.gif", render_ops_center_panel())
+    else:
+        ok &= divoom.send_image_panel(DIVOOM_IP, 2, "center.gif", render_gengar_panel())
     ok &= divoom.send_image_panel(DIVOOM_IP, 3, "clawd.gif", render_clawd_panel(claude_waiting_input()))
     return ok
+
+
+def render_ops_center_panel() -> bytes:
+    from calendar_provider import get_next_events
+    from dashboard_renderer import render_ops_panel
+    from market_data import get_quotes
+    from resource_monitor import get_resources
+
+    return render_ops_panel(
+        get_quotes(max_items=int(os.getenv("OPS_MARKET_ROWS", "3"))),
+        get_resources(),
+        get_next_events(max_items=1),
+    )
 
 
 def get_claude_usage() -> dict:

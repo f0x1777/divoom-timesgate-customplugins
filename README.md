@@ -9,12 +9,13 @@ Current integrations:
 - Claude usage from the Claude web usage API via a logged-in Chrome session.
 - Codex and Claude "waiting for input" detection from local session logs.
 - Divoom Times Gate buzzer alerts via `Device/PlayBuzzer`.
+- Optional center "ops" panel with markets, local resources, and calendar.
 
 ## Screen Layout
 
 - Screen 0: Codex usage, shown as available capacity.
 - Screen 1: OpenAI logo animation.
-- Screen 2: Center animation GIF.
+- Screen 2: Center animation GIF, or combined ops panel when `CENTER_PANEL=ops`.
 - Screen 3: Claude status animation.
 - Screen 4: Claude usage, shown as available capacity.
 
@@ -41,6 +42,7 @@ CLAUDE_ORG_ID=
 OPENAI_LOGO_GIF_PATH=assets/openai-logo.gif
 GENGAR_GIF_PATH=assets/center.gif
 CLAWD_GIF_PATH=assets/clawd.gif
+CENTER_PANEL=gif
 ```
 
 `CLAUDE_ORG_ID` can be found by opening Claude in a browser and inspecting the
@@ -151,6 +153,40 @@ Logs:
 logs/meter.log
 logs/meter.err.log
 ```
+
+## Combined Ops Panel
+
+Set `CENTER_PANEL=ops` to replace the center GIF with one dense screen:
+
+- Market quotes: crypto via CoinGecko, equities/ETFs via Stooq.
+- Local resources: CPU, memory, disk, battery.
+- Calendar: next event from an optional public/private ICS URL.
+
+Example:
+
+```env
+CENTER_PANEL=ops
+MARKET_ASSETS=BTC:crypto:bitcoin,ETH:crypto:ethereum,SPY:stooq:spy.us
+OPS_MARKET_ROWS=3
+CALENDAR_ICS_URL=
+```
+
+Asset format:
+
+```text
+LABEL:crypto:coingecko-id
+LABEL:stooq:stooq-symbol
+```
+
+Examples:
+
+```env
+MARKET_ASSETS=BTC:crypto:bitcoin,ETH:crypto:ethereum,QQQ:stooq:qqq.us
+MARKET_ASSETS=SOL:crypto:solana,NVDA:stooq:nvda.us,SPY:stooq:spy.us
+```
+
+Calendar support is intentionally optional. If `CALENDAR_ICS_URL` is empty, the
+calendar row shows `CAL --` and the rest of the panel still works.
 
 ## What Else Can This Show?
 

@@ -305,3 +305,88 @@ def render_gengar_panel() -> bytes:
     if not frames:
         return render_blank_panel()
     return _save_gif_with_durations(frames, durations)
+
+
+def render_ops_panel(
+    quotes: list[dict[str, Any]],
+    resources: dict[str, float],
+    events: list[dict[str, Any]],
+) -> bytes:
+    img = _base("#080A0D")
+    draw = ImageDraw.Draw(img)
+    draw.text((5, 4), "OPS", font=FONT_ROW, fill="#FFFFFF")
+    draw.text((33, 4), datetime.now().strftime("%H:%M"), font=FONT_ROW, fill="#7DD3FC")
+    draw.line((5, 18, 122, 18), fill="#1E293B")
+
+    y = 23
+    if quotes:
+        for quote in quotes[:3]:
+            label = str(quote.get("label", "?"))[:4]
+            price = _short_price(quote.get("price"))
+            change = _signed_pct(quote.get("change_pct"))
+            color = "#22C55E" if _num(quote.get("change_pct")) >= 0 else "#FB7185"
+            draw.text((5, y), label, font=FONT_ROW, fill="#CBD5E1")
+            draw.text((37, y), price, font=FONT_ROW, fill="#FFFFFF")
+            draw.text((83, y), change, font=FONT_SMALL, fill=color)
+            y += 15
+    else:
+        draw.text((5, y), "MARKETS --", font=FONT_ROW, fill="#64748B")
+        y += 16
+
+    draw.line((5, 70, 122, 70), fill="#1E293B")
+    _draw_metric(draw, 5, 77, "CPU", resources.get("cpu"), "#38BDF8")
+    _draw_metric(draw, 66, 77, "MEM", resources.get("memory"), "#A78BFA")
+    _draw_metric(draw, 5, 93, "DSK", resources.get("disk"), "#FBBF24")
+    _draw_metric(draw, 66, 93, "BAT", resources.get("battery"), "#34D399")
+
+    draw.line((5, 110, 122, 110), fill="#1E293B")
+    event_text = _event_label(events[0]) if events else "CAL --"
+    draw.text((5, 115), event_text, font=FONT_SMALL, fill="#E2E8F0")
+    return _save_gif([img], duration=1000)
+
+
+def _draw_metric(draw: ImageDraw.ImageDraw, x: int, y: int, label: str, value: Any, color: str):
+    pct = _num(value)
+    text = "--" if pct < 0 else f"{round(pct):02.0f}%"
+    draw.text((x, y), label, font=FONT_SMALL, fill="#94A3B8")
+    draw.text((x + 25, y - 1), text, font=FONT_ROW, fill=color)
+
+
+def _event_label(event: dict[str, Any]) -> str:
+    try:
+        start = datetime.fromisoformat(str(event.get("start"))).astimezone()
+        time_label = start.strftime("%H:%M")
+    except Exception:
+        time_label = "--:--"
+    summary = str(event.get("summary", "Event"))
+    return f"{time_label} {summary}"[:23]
+
+
+def _short_price(value: Any) -> str:
+    price = _num(value)
+    if price < 0:
+        return "--"
+    if price >= 1000:
+        return f"{price / 1000:.1f}K"
+    if price >= 100:
+        return f"{price:.0f}"
+    if price >= 10:
+        return f"{price:.1f}"
+    return f"{price:.2f}"
+
+
+def _signed_pct(value: Any) -> str:
+    pct = _num(value)
+    if pct < -99:
+        return "--"
+    sign = "+" if pct >= 0 else ""
+    return f"{sign}{pct:.1f}"
+
+
+def _num(value: Any) -> float:
+    try:
+        if value is None:
+            return -1.0
+        return float(value)
+    except (TypeError, ValueError):
+        return -1.0
