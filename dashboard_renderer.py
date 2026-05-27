@@ -131,6 +131,11 @@ def _draw_clawmp(draw: ImageDraw.ImageDraw, x: int, y: int, bounce: int = 0):
     draw.text((x + 26, y + 7), "Clawmp", font=FONT_SMALL, fill="#FFFFFF")
 
 
+def _draw_waiting_overlay(draw: ImageDraw.ImageDraw, color: str):
+    draw.rounded_rectangle((40, 27, 88, 101), radius=7, fill="#000000", outline=color, width=2)
+    draw.text((54, 32), "!", font=_font(58, True), fill=color)
+
+
 def render_codex_panel(usage: dict, waiting: bool = False) -> bytes:
     primary_avail = _available_from_used(usage.get("primary"))
     secondary_avail = _available_from_used(usage.get("secondary"))
@@ -144,6 +149,8 @@ def render_codex_panel(usage: dict, waiting: bool = False) -> bytes:
     draw.text((7, 70), "Wk", font=FONT_MED, fill="#A9B8B0")
     draw.text((49, 67), _pct(secondary_avail), font=FONT_BIG, fill="#19C37D")
     draw.text((49, 93), _reset_label(usage.get("secondary_reset")), font=FONT_MED, fill="#FFFFFF")
+    if waiting:
+        _draw_waiting_overlay(draw, "#19C37D")
     return _save_gif([img])
 
 
@@ -168,6 +175,8 @@ def render_claude_panel(usage: dict, waiting: bool = False) -> bytes:
         draw.text((80, y + 3), _reset_label(reset), font=FONT_SMALL, fill="#FFFFFF")
         if idx < 3:
             draw.line((5, y + 27, 122, y + 27), fill="#3D230B")
+    if waiting:
+        _draw_waiting_overlay(draw, "#FFB14A")
     return _save_gif([img])
 
 
