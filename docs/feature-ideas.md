@@ -43,8 +43,9 @@ panel.
 
 4. Alert routing
 
-   Use the Divoom buzzer for urgent transitions and silent animations for low
-   priority status changes.
+   Initial support exists for Codex app and Claude Code / Claude Desktop
+   interaction alerts. Future work: per-app sound patterns, quiet hours, and
+   support for additional apps that expose compatible state logs.
 
 ## Open Source Constraints
 

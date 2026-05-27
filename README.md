@@ -9,6 +9,8 @@ Current integrations:
 - Claude usage from the Claude web usage API via a logged-in Chrome session.
 - Codex and Claude "waiting for input" detection from local session logs.
 - Divoom Times Gate buzzer alerts via `Device/PlayBuzzer`.
+- Optional audible alerts when a supported AI app finishes a request or needs
+  user interaction.
 - Optional center "ops" panel with markets, local resources, and calendar.
 
 ## Screen Layout
@@ -54,8 +56,8 @@ https://claude.ai/api/organizations/<CLAUDE_ORG_ID>/usage
 
 ## Interaction Beeps
 
-The meter beeps whenever Codex or Claude finishes a turn and is waiting for the
-operator again.
+The meter can beep whenever a supported AI app finishes a request or requires
+operator interaction again.
 
 This is implemented as a state transition:
 
@@ -71,6 +73,18 @@ the meter:
 1. Animates the relevant panel.
 2. Calls the Divoom Times Gate buzzer.
 3. Falls back to a macOS beep only if the Divoom buzzer fails.
+
+Support matrix:
+
+| App | Status | Detection source |
+| --- | --- | --- |
+| Codex app | Supported | Local `~/.codex/sessions/**/*.jsonl` events |
+| Claude Code / Claude Desktop | Supported | Local `~/.claude/projects/**/*.jsonl` events |
+| Generic CLI wrappers | Best effort / not guaranteed | Only works if they write compatible local session events |
+
+The alert is intentionally transition-based, so it should beep once when the app
+moves from active work to waiting for input, not on every refresh while it is
+already waiting.
 
 Relevant env flags:
 
