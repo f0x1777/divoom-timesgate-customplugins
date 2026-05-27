@@ -265,7 +265,7 @@ def _render_spinning_mark(mark: Image.Image, waiting: bool = False) -> bytes:
 
 
 def render_clawd_panel(waiting: bool = False) -> bytes:
-    path_value = os.getenv("CLAWD_GIF_PATH", "assets/clawd.gif")
+    path_value = os.getenv("STATUS_GIF_PATH", os.getenv("CLAWD_GIF_PATH", "assets/status.gif"))
     path = Path(path_value).expanduser()
     if not path.exists():
         return render_blank_panel()
@@ -323,7 +323,7 @@ def render_blank_panel() -> bytes:
 
 
 def render_gengar_panel() -> bytes:
-    path_value = os.getenv("GENGAR_GIF_PATH", "assets/center.gif")
+    path_value = os.getenv("CENTER_GIF_PATH", os.getenv("GENGAR_GIF_PATH", "assets/center.gif"))
     path = Path(path_value).expanduser()
     if not path.exists():
         return render_blank_panel()

@@ -31,16 +31,16 @@ The Times Gate has five useful screen slots in this app:
 | --- | --- | --- |
 | `0` | Codex usage | Codex 5h, weekly, and context availability |
 | `1` | `openai` | Configurable static/ambient panel |
-| `2` | `gengar` | Configurable static/ambient panel |
-| `3` | `clawd` | Configurable static/ambient panel |
+| `2` | `center` | Configurable static/ambient panel |
+| `3` | `status` | Configurable static/ambient panel |
 | `4` | Claude usage | Claude 5h, weekly, design, and Sonnet availability |
 
 Static panel slots are configured with:
 
 ```env
 SCREEN_1_PANEL=openai
-SCREEN_2_PANEL=gengar
-SCREEN_3_PANEL=clawd
+SCREEN_2_PANEL=center
+SCREEN_3_PANEL=status
 ```
 
 Supported panel values:
@@ -48,9 +48,9 @@ Supported panel values:
 ```text
 openai
 ops
-gengar
+center
 calendar
-clawd
+status
 health
 blank
 ```
@@ -59,15 +59,15 @@ Example layout:
 
 ```env
 SCREEN_1_PANEL=ops
-SCREEN_2_PANEL=gengar
+SCREEN_2_PANEL=center
 SCREEN_3_PANEL=calendar
 ```
 
 ## Quick Start
 
 ```bash
-git clone git@github.com:f0x1777/divoom-timesgate-aifeats.git
-cd divoom-timesgate-aifeats
+git clone git@github.com:f0x1777/divoom-timesgate-customplugins.git
+cd divoom-timesgate-customplugins
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env
@@ -80,7 +80,7 @@ DIVOOM_IP=192.168.1.123
 DIVOOM_MAC=
 METER_PROVIDER=both
 SCREEN_1_PANEL=ops
-SCREEN_2_PANEL=gengar
+SCREEN_2_PANEL=center
 SCREEN_3_PANEL=calendar
 ```
 
@@ -236,9 +236,9 @@ appear together on the same screen.
 
 ```env
 SCREEN_3_PANEL=calendar
-CALENDAR_ICS_URL_1=https://example.com/nico-solx.ics
-CALENDAR_ICS_URL_2=https://example.com/nico-gmail.ics
-CALENDAR_ICS_URL_3=https://example.com/nicolas-triton.ics
+CALENDAR_ICS_URL_1=https://example.com/calendar-1.ics
+CALENDAR_ICS_URL_2=https://example.com/calendar-2.ics
+CALENDAR_ICS_URL_3=https://example.com/calendar-3.ics
 CALENDAR_MAX_EVENTS=3
 CALENDAR_CACHE_SECONDS=300
 CALENDAR_LOOKAHEAD_HOURS=48

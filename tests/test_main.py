@@ -100,7 +100,7 @@ class UsageDisplayTests(unittest.TestCase):
 
         previous = (main.SCREEN_1_PANEL, main.SCREEN_2_PANEL, main.SCREEN_3_PANEL)
         main.SCREEN_1_PANEL = "ops"
-        main.SCREEN_2_PANEL = "gengar"
+        main.SCREEN_2_PANEL = "center"
         main.SCREEN_3_PANEL = "calendar"
         try:
             with patch.dict(sys.modules, {"divoom": fake_divoom}), \
@@ -110,7 +110,16 @@ class UsageDisplayTests(unittest.TestCase):
             main.SCREEN_1_PANEL, main.SCREEN_2_PANEL, main.SCREEN_3_PANEL = previous
 
         self.assertTrue(ok)
-        self.assertEqual([call[1:3] for call in fake_divoom.calls], [(1, "ops.gif"), (2, "gengar.gif"), (3, "calendar.gif")])
+        self.assertEqual([call[1:3] for call in fake_divoom.calls], [(1, "ops.gif"), (2, "center.gif"), (3, "calendar.gif")])
+
+    def test_static_panel_supports_generic_aliases(self):
+        with patch("dashboard_renderer.render_gengar_panel", return_value=b"center") as render_center, \
+             patch("dashboard_renderer.render_clawd_panel", return_value=b"status") as render_status:
+            self.assertEqual(main.render_static_panel("center"), b"center")
+            self.assertEqual(main.render_static_panel("status"), b"status")
+
+        render_center.assert_called_once()
+        render_status.assert_called_once()
 
     def test_codex_waiting_transition_beeps_once(self):
         main.CODEX_WAITING_INPUT = False

@@ -448,9 +448,9 @@ def render_static_panel(panel: str) -> bytes:
         return render_health_center_panel()
     if panel == "calendar":
         return render_calendar_center_panel()
-    if panel == "clawd":
+    if panel in ("status", "assistant", "clawd"):
         return render_clawd_panel(claude_waiting_input())
-    if panel in ("gengar", "center"):
+    if panel in ("center", "mascot", "gengar"):
         return render_gengar_panel()
     return render_blank_panel()
 
