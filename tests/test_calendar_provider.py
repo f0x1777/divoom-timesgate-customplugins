@@ -1,11 +1,21 @@
 from datetime import datetime, timedelta
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import calendar_provider
 
 
 class CalendarProviderTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.cache_path_patch = patch.object(calendar_provider, "CACHE_PATH", Path(self.tmp.name) / "calendar_cache.json")
+        self.cache_path_patch.start()
+        self.addCleanup(self.cache_path_patch.stop)
+
     def test_parse_ics_event(self):
         start = (datetime.now() + timedelta(hours=1)).strftime("%Y%m%dT%H%M%S")
         text = f"""BEGIN:VCALENDAR
@@ -22,6 +32,20 @@ END:VCALENDAR
         self.assertEqual(events[0]["summary"], "Focus block")
         self.assertEqual(events[0]["uid"], "event-1")
         self.assertIn("start", events[0])
+
+    def test_parse_ics_event_with_tzid(self):
+        text = """BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:event-1
+DTSTART;TZID=America/Argentina/Buenos_Aires:20260527T091500
+SUMMARY:Focus block
+END:VEVENT
+END:VCALENDAR
+"""
+
+        events = calendar_provider._parse_ics(text)
+
+        self.assertEqual(events[0]["start"], "2026-05-27T09:15:00-03:00")
 
     def test_calendar_urls_support_numbered_feeds(self):
         with patch.dict(
@@ -119,6 +143,49 @@ END:VCALENDAR
             events = calendar_provider.get_due_events(window_seconds=90, max_items=3)
 
         self.assertEqual([event["summary"] for event in events], ["Due event"])
+
+    def test_calendar_window_deduplicates_same_uid_and_start(self):
+        start = (datetime.now().astimezone() + timedelta(hours=1)).isoformat()
+        events = [
+            {"uid": "same", "summary": "One", "start": start},
+            {"uid": "same", "summary": "One", "start": start},
+        ]
+
+        window = calendar_provider._calendar_window(events)
+
+        self.assertEqual(len(window), 1)
+
+    def test_cache_ignores_legacy_list_payload(self):
+        calendar_provider.CACHE_PATH.write_text(json.dumps([{"summary": "stale"}]), encoding="utf-8")
+
+        with patch.object(calendar_provider, "CACHE_TTL_SECS", 300):
+            cached = calendar_provider._read_cache()
+
+        self.assertIsNone(cached)
+
+    def test_cache_is_scoped_to_calendar_urls(self):
+        events = [{"summary": "Matching", "start": datetime.now().isoformat()}]
+
+        with patch.dict("os.environ", {"CALENDAR_ICS_URL": "https://example.com/a.ics"}, clear=True):
+            calendar_provider._write_cache(events)
+
+        with patch.dict("os.environ", {"CALENDAR_ICS_URL": "https://example.com/b.ics"}, clear=True), \
+             patch.object(calendar_provider, "CACHE_TTL_SECS", 300):
+            cached = calendar_provider._read_cache()
+
+        self.assertIsNone(cached)
+
+    def test_cache_round_trips_for_same_calendar_urls(self):
+        events = [{"summary": "Matching", "start": datetime.now().isoformat()}]
+
+        with patch.dict("os.environ", {"CALENDAR_ICS_URL": "https://example.com/a.ics"}, clear=True):
+            calendar_provider._write_cache(events)
+
+        with patch.dict("os.environ", {"CALENDAR_ICS_URL": "https://example.com/a.ics"}, clear=True), \
+             patch.object(calendar_provider, "CACHE_TTL_SECS", 300):
+            cached = calendar_provider._read_cache()
+
+        self.assertEqual(cached, events)
 
 
 if __name__ == "__main__":

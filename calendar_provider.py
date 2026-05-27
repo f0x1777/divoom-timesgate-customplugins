@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import time
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 
@@ -26,13 +28,23 @@ def _read_cache() -> list[dict[str, Any]] | None:
         data = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
     except Exception:
         return None
-    return data if isinstance(data, list) else None
+    if not isinstance(data, dict):
+        return None
+    if data.get("version") != 2 or data.get("source_key") != _calendar_source_key():
+        return None
+    events = data.get("events")
+    return events if isinstance(events, list) else None
 
 
 def _write_cache(events: list[dict[str, Any]]):
     try:
         CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CACHE_PATH.write_text(json.dumps(events), encoding="utf-8")
+        payload = {
+            "version": 2,
+            "source_key": _calendar_source_key(),
+            "events": events,
+        }
+        CACHE_PATH.write_text(json.dumps(payload), encoding="utf-8")
     except Exception as e:
         print(f"[calendar] Cache write skipped: {e}")
 
@@ -47,7 +59,7 @@ def _unfold_ics(text: str) -> list[str]:
     return lines
 
 
-def _parse_datetime(value: str) -> datetime | None:
+def _parse_datetime(value: str, tzid: str | None = None) -> datetime | None:
     value = value.strip()
     formats = [
         ("%Y%m%dT%H%M%SZ", timezone.utc),
@@ -59,6 +71,11 @@ def _parse_datetime(value: str) -> datetime | None:
             dt = datetime.strptime(value, fmt)
             if tz is not None:
                 dt = dt.replace(tzinfo=tz)
+            elif tzid:
+                try:
+                    dt = dt.replace(tzinfo=ZoneInfo(tzid))
+                except ZoneInfoNotFoundError:
+                    pass
             return dt.astimezone() if dt.tzinfo else dt
         except ValueError:
             continue
@@ -75,7 +92,7 @@ def _parse_ics(text: str) -> list[dict[str, Any]]:
         if line == "END:VEVENT" and current is not None:
             summary = current.get("SUMMARY", "Calendar event")
             start_raw = current.get("DTSTART")
-            start = _parse_datetime(start_raw) if start_raw else None
+            start = _parse_datetime(start_raw, current.get("DTSTART_TZID")) if start_raw else None
             if start:
                 events.append({
                     "uid": _clean_text(current.get("UID", "")),
@@ -86,11 +103,24 @@ def _parse_ics(text: str) -> list[dict[str, Any]]:
             continue
         if current is None or ":" not in line:
             continue
-        key, value = line.split(":", 1)
-        key = key.split(";", 1)[0]
+        raw_key, value = line.split(":", 1)
+        key, params = _parse_property_key(raw_key)
         if key in ("UID", "SUMMARY", "DTSTART"):
             current[key] = value
+        if key == "DTSTART" and "TZID" in params:
+            current["DTSTART_TZID"] = params["TZID"]
     return events
+
+
+def _parse_property_key(raw_key: str) -> tuple[str, dict[str, str]]:
+    parts = raw_key.split(";")
+    params: dict[str, str] = {}
+    for item in parts[1:]:
+        if "=" not in item:
+            continue
+        name, value = item.split("=", 1)
+        params[name.upper()] = value.strip('"')
+    return parts[0], params
 
 
 def _clean_text(value: str) -> str:
@@ -125,6 +155,11 @@ def _calendar_urls() -> list[str]:
             deduped.append(normalized)
             seen.add(normalized)
     return deduped
+
+
+def _calendar_source_key() -> str:
+    material = "\n".join(_calendar_urls())
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def _normalize_calendar_url(url: str) -> str:
@@ -212,15 +247,29 @@ def _calendar_window(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     since = now - timedelta(hours=max(1, PAST_EVENT_HOURS))
     until = now + timedelta(hours=LOOKAHEAD_HOURS)
     window = []
+    seen: set[str] = set()
     for event in events:
         try:
             start = datetime.fromisoformat(event["start"]).astimezone()
         except Exception:
             continue
         if since <= start <= until:
+            key = _event_dedupe_key(event)
+            if key in seen:
+                continue
+            seen.add(key)
             window.append(event)
     window.sort(key=lambda item: item["start"])
     return window
+
+
+def _event_dedupe_key(event: dict[str, Any]) -> str:
+    uid = str(event.get("uid") or "").strip()
+    start = str(event.get("start") or "").strip()
+    if uid:
+        return f"uid:{uid}:{start}"
+    summary = _clean_text(str(event.get("summary") or "")).casefold()
+    return f"fallback:{start}:{summary}"
 
 
 def _read_stale_cache() -> list[dict[str, Any]] | None:
@@ -230,4 +279,9 @@ def _read_stale_cache() -> list[dict[str, Any]] | None:
         data = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
     except Exception:
         return None
-    return data if isinstance(data, list) else None
+    if not isinstance(data, dict):
+        return None
+    if data.get("version") != 2 or data.get("source_key") != _calendar_source_key():
+        return None
+    events = data.get("events")
+    return events if isinstance(events, list) else None
