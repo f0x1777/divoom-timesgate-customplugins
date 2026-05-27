@@ -263,10 +263,11 @@ RESOURCE_PERCENT_BUCKET=5
 RESOURCE_NETWORK_BUCKET_MBPS=0.25
 ```
 
-CPU temperature is optional. On macOS, install `osx-cpu-temp` and keep:
+CPU temperature is optional. On Apple Silicon, `macmon` is preferred because it
+can report temperatures without `sudo`:
 
 ```env
-CPU_TEMP_COMMAND=osx-cpu-temp
+CPU_TEMP_COMMAND=macmon pipe -s 1 -i 1000
 CPU_TEMP_MIN_C=35
 CPU_TEMP_MAX_C=100
 ```

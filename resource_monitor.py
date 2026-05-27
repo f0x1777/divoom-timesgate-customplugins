@@ -68,6 +68,9 @@ def _cpu_temperature_celsius() -> float:
     if configured:
         commands.append(shlex.split(configured))
     commands.extend([
+        ["/opt/homebrew/bin/macmon", "pipe", "-s", "1", "-i", "1000"],
+        [str(Path.home() / ".cargo/bin/macmon"), "pipe", "-s", "1", "-i", "1000"],
+        ["macmon", "pipe", "-s", "1", "-i", "1000"],
         ["osx-cpu-temp"],
         ["istats", "cpu", "temp", "--value-only"],
     ])
@@ -84,6 +87,10 @@ def _cpu_temperature_celsius() -> float:
 
 
 def _parse_temperature_celsius(output: str) -> float:
+    json_temp = _parse_temperature_json(output)
+    if json_temp >= 0:
+        return json_temp
+
     match = re.search(r"(-?\d+(?:\.\d+)?)\s*([CF])?", output, re.IGNORECASE)
     if not match:
         return -1.0
@@ -96,6 +103,23 @@ def _parse_temperature_celsius(output: str) -> float:
 
 def _valid_temperature_celsius(value: float) -> bool:
     return 10.0 <= value <= 120.0
+
+
+def _parse_temperature_json(output: str) -> float:
+    try:
+        data = json.loads(output)
+    except Exception:
+        return -1.0
+    candidates = [
+        data.get("temp", {}).get("cpu_temp_avg") if isinstance(data.get("temp"), dict) else None,
+        data.get("cpu_temp_avg"),
+        data.get("cpu_temperature_c"),
+        data.get("temperature_c"),
+    ]
+    for value in candidates:
+        if isinstance(value, (int, float)):
+            return round(float(value), 1)
+    return -1.0
 
 
 def _battery_percent() -> float:

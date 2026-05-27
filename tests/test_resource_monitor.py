@@ -42,6 +42,10 @@ class ResourceMonitorTests(unittest.TestCase):
     def test_parse_temperature_celsius(self):
         self.assertEqual(resource_monitor._parse_temperature_celsius("53.4 C"), 53.4)
         self.assertEqual(resource_monitor._parse_temperature_celsius("128 F"), 53.3)
+        self.assertEqual(
+            resource_monitor._parse_temperature_celsius('{"temp":{"cpu_temp_avg":53.31679916381836}}'),
+            53.3,
+        )
         self.assertEqual(resource_monitor._parse_temperature_celsius("no sensor"), -1.0)
 
     def test_cpu_temperature_rejects_implausible_sensor_values(self):
