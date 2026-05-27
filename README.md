@@ -230,18 +230,26 @@ NETWORK_INTERFACES=en0,utun0
 
 ## Calendar Panel
 
-The `calendar` panel reads upcoming events from an ICS feed.
+The `calendar` panel reads upcoming events from one or more ICS feeds. Multiple
+feeds are merged into one chronological list, so events from different accounts
+appear together on the same screen.
 
 ```env
 SCREEN_3_PANEL=calendar
-CALENDAR_ICS_URL=https://example.com/private-calendar.ics
+CALENDAR_ICS_URL_1=https://example.com/nico-solx.ics
+CALENDAR_ICS_URL_2=https://example.com/nico-gmail.ics
+CALENDAR_ICS_URL_3=https://example.com/nicolas-triton.ics
 CALENDAR_MAX_EVENTS=3
 CALENDAR_CACHE_SECONDS=300
 CALENDAR_LOOKAHEAD_HOURS=48
 ```
 
+For a single calendar, `CALENDAR_ICS_URL=https://...` still works. For a compact
+list, `CALENDAR_ICS_URLS=url1,url2,url3` also works.
+
 The panel shows today's date, the next event prominently, and up to two
-additional upcoming events. If `CALENDAR_ICS_URL` is empty, it shows `NO EVENTS`.
+additional upcoming events. If no calendar URL is configured, it shows
+`NO EVENTS`.
 
 ## Service Health Panel
 
@@ -424,7 +432,8 @@ If Claude usage is unknown:
 
 If calendar says `NO EVENTS`:
 
-1. Set `CALENDAR_ICS_URL`.
+1. Set `CALENDAR_ICS_URL`, `CALENDAR_ICS_URLS`, or numbered URLs such as
+   `CALENDAR_ICS_URL_1`.
 2. Confirm the URL is reachable from the machine running the meter.
 3. Increase `CALENDAR_LOOKAHEAD_HOURS` if the next event is farther away.
 

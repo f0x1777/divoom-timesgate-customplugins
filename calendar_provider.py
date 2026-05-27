@@ -93,23 +93,60 @@ def _clean_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+def _calendar_urls() -> list[str]:
+    urls: list[str] = []
+
+    single = os.getenv("CALENDAR_ICS_URL", "").strip()
+    if single:
+        urls.append(single)
+
+    combined = os.getenv("CALENDAR_ICS_URLS", "").strip()
+    if combined:
+        for item in re.split(r"[\n,]", combined):
+            url = item.strip()
+            if url:
+                urls.append(url)
+
+    for idx in range(1, 10):
+        url = os.getenv(f"CALENDAR_ICS_URL_{idx}", "").strip()
+        if url:
+            urls.append(url)
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for url in urls:
+        if url not in seen:
+            deduped.append(url)
+            seen.add(url)
+    return deduped
+
+
 def get_next_events(max_items: int = 1) -> list[dict[str, Any]]:
     cached = _read_cache()
     if cached is not None:
         return cached[:max_items]
 
-    url = os.getenv("CALENDAR_ICS_URL", "").strip()
-    if not url:
+    urls = _calendar_urls()
+    if not urls:
         return []
 
-    try:
-        response = requests.get(url, timeout=8)
-        response.raise_for_status()
-        events = _parse_ics(response.text)
-    except Exception as e:
-        print(f"[calendar] Error: {e}")
+    events: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for url in urls:
+        try:
+            response = requests.get(url, timeout=8)
+            response.raise_for_status()
+            events.extend(_parse_ics(response.text))
+        except Exception as e:
+            errors.append(type(e).__name__)
+
+    if errors and not events:
+        print(f"[calendar] Error: {', '.join(errors)}")
         stale = _read_stale_cache()
         return (stale or [])[:max_items]
+
+    if errors:
+        print(f"[calendar] Partial errors: {', '.join(errors)}")
 
     now = datetime.now().astimezone()
     until = now + timedelta(hours=LOOKAHEAD_HOURS)
