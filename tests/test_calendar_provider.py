@@ -30,11 +30,26 @@ END:VCALENDAR
                 "CALENDAR_ICS_URL_1": "https://example.com/one.ics",
                 "CALENDAR_ICS_URL_2": "https://example.com/two.ics",
             },
-            clear=False,
+            clear=True,
         ):
             urls = calendar_provider._calendar_urls()
 
         self.assertEqual(urls, ["https://example.com/one.ics", "https://example.com/two.ics"])
+
+    def test_calendar_urls_normalize_webcal_to_https(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "CALENDAR_ICS_URL": "webcal://example.com/private.ics",
+                "CALENDAR_ICS_URLS": "",
+                "CALENDAR_ICS_URL_1": "",
+                "CALENDAR_ICS_URL_2": "",
+            },
+            clear=True,
+        ):
+            urls = calendar_provider._calendar_urls()
+
+        self.assertEqual(urls, ["https://example.com/private.ics"])
 
     def test_get_next_events_merges_multiple_calendars_by_start_time(self):
         first = (datetime.now() + timedelta(hours=2)).strftime("%Y%m%dT%H%M%S")
@@ -65,7 +80,7 @@ END:VCALENDAR
                 "CALENDAR_ICS_URL_1": "https://example.com/one.ics",
                 "CALENDAR_ICS_URL_2": "https://example.com/two.ics",
             },
-            clear=False,
+            clear=True,
         ), \
              patch.object(calendar_provider, "CACHE_TTL_SECS", 0), \
              patch("requests.get", side_effect=responses):

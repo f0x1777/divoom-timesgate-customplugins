@@ -115,10 +115,17 @@ def _calendar_urls() -> list[str]:
     deduped: list[str] = []
     seen: set[str] = set()
     for url in urls:
-        if url not in seen:
-            deduped.append(url)
-            seen.add(url)
+        normalized = _normalize_calendar_url(url)
+        if normalized not in seen:
+            deduped.append(normalized)
+            seen.add(normalized)
     return deduped
+
+
+def _normalize_calendar_url(url: str) -> str:
+    if url.lower().startswith("webcal://"):
+        return "https://" + url[len("webcal://") :]
+    return url
 
 
 def get_next_events(max_items: int = 1) -> list[dict[str, Any]]:

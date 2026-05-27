@@ -245,7 +245,8 @@ CALENDAR_LOOKAHEAD_HOURS=48
 ```
 
 For a single calendar, `CALENDAR_ICS_URL=https://...` still works. For a compact
-list, `CALENDAR_ICS_URLS=url1,url2,url3` also works.
+list, `CALENDAR_ICS_URLS=url1,url2,url3` also works. `webcal://...` subscription
+links are accepted and normalized to `https://...` internally.
 
 The panel shows today's date, the next event prominently, and up to two
 additional upcoming events. If no calendar URL is configured, it shows
