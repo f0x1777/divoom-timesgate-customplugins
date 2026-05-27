@@ -17,6 +17,7 @@ class UsageDisplayTests(unittest.TestCase):
         main.CLAUDE_WAITING_INPUT = False
         main.LAST_CLAUDE_WAITING_INPUT = None
         main.LAST_CLAUDE_USAGE = None
+        main.LAST_LIMIT_ZERO_STATE = {}
 
     def test_unknown_usage_is_not_known(self):
         usage = {"session": -1.0, "week": -1.0, "design": -1.0}
@@ -187,6 +188,42 @@ class UsageDisplayTests(unittest.TestCase):
             main.beep_for_interaction("CODEX")
 
         subprocess_run.assert_not_called()
+
+    def test_limit_alerts_trigger_when_limit_reaches_zero(self):
+        with patch.dict(os.environ, {"BEEP_ON_LIMIT_ALERTS": "1"}):
+            initial = main.collect_limit_alerts(
+                "codex",
+                {"primary": 0.5, "secondary": 0.2, "context": 0.1},
+            )
+            exhausted = main.collect_limit_alerts(
+                "codex",
+                {"primary": 1.0, "secondary": 0.2, "context": 0.1},
+            )
+
+        self.assertEqual(initial, [])
+        self.assertEqual(exhausted, [("codex", "5h", "exhausted")])
+
+    def test_limit_alerts_trigger_when_limit_resets(self):
+        main.LAST_LIMIT_ZERO_STATE["claude:week"] = True
+
+        with patch.dict(os.environ, {"BEEP_ON_LIMIT_ALERTS": "1"}):
+            events = main.collect_limit_alerts(
+                "claude",
+                {"session": 0.2, "week": 0.5, "design": 0.3, "sonnet": 0.4},
+            )
+
+        self.assertEqual(events, [("claude", "weekly", "reset")])
+
+    def test_limit_alerts_can_be_disabled_per_provider(self):
+        main.LAST_LIMIT_ZERO_STATE["codex:primary"] = False
+
+        with patch.dict(os.environ, {"BEEP_ON_CODEX_LIMIT_ALERTS": "0"}):
+            events = main.collect_limit_alerts(
+                "codex",
+                {"primary": 1.0, "secondary": 0.2, "context": 0.1},
+            )
+
+        self.assertEqual(events, [])
 
 
 if __name__ == "__main__":

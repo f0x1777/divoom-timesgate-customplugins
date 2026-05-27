@@ -30,6 +30,11 @@ When a transition into waiting state is detected, the meter:
 It should beep once per transition into waiting state. It should not beep on
 every refresh while the app remains idle.
 
+Limit exhaustion alerts work the same way: one beep when a displayed Codex or
+Claude limit reaches `0%` available, and one beep when that limit becomes
+available again after reset. The first observation after process startup only
+records state and does not beep.
+
 ## Configuration
 
 ```env
@@ -37,6 +42,10 @@ CODEX_WAITING_AUTO=1
 CLAUDE_WAITING_AUTO=1
 BEEP_ON_CODEX_WAITING=1
 BEEP_ON_CLAUDE_WAITING=1
+BEEP_ON_LIMIT_ALERTS=1
+BEEP_ON_CODEX_LIMIT_ALERTS=1
+BEEP_ON_CLAUDE_LIMIT_ALERTS=1
+LIMIT_ZERO_AVAILABLE_PERCENT=0
 DIVOOM_BEEP=1
 DIVOOM_BEEP_TOTAL_MS=1800
 DIVOOM_BEEP_ACTIVE_MS=300

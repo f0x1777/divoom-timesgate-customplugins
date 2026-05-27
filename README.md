@@ -109,6 +109,12 @@ The alert is intentionally transition-based, so it should beep once when the app
 moves from active work to waiting for input, not on every refresh while it is
 already waiting.
 
+Limit exhaustion alerts are also transition-based. The meter beeps once when a
+tracked limit reaches `0%` available, and once when that same limit becomes
+available again after a reset. The first sample after startup only initializes
+state, so restarting the service will not beep just because a limit was already
+at zero.
+
 Relevant env flags:
 
 ```env
@@ -116,6 +122,10 @@ CODEX_WAITING_AUTO=1
 CLAUDE_WAITING_AUTO=1
 BEEP_ON_CODEX_WAITING=1
 BEEP_ON_CLAUDE_WAITING=1
+BEEP_ON_LIMIT_ALERTS=1
+BEEP_ON_CODEX_LIMIT_ALERTS=1
+BEEP_ON_CLAUDE_LIMIT_ALERTS=1
+LIMIT_ZERO_AVAILABLE_PERCENT=0
 DIVOOM_BEEP=1
 DIVOOM_BEEP_TOTAL_MS=1800
 DIVOOM_BEEP_ACTIVE_MS=300

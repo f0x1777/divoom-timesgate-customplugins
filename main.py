@@ -39,6 +39,21 @@ LAST_CODEX_USAGE: dict | None = None
 CLAUDE_WAITING_INPUT = False
 LAST_CLAUDE_WAITING_INPUT: bool | None = None
 LAST_CLAUDE_USAGE: dict | None = None
+LAST_LIMIT_ZERO_STATE: dict[str, bool] = {}
+
+LIMIT_FIELDS = {
+    "codex": (
+        ("primary", "5h"),
+        ("secondary", "weekly"),
+        ("context", "context"),
+    ),
+    "claude": (
+        ("session", "5h"),
+        ("week", "weekly"),
+        ("design", "design"),
+        ("sonnet", "sonnet"),
+    ),
+}
 
 
 def pct_str(v: float) -> str:
@@ -136,6 +151,11 @@ def beep_for_interaction(provider: str = "CODEX"):
     provider = provider.upper()
     if not env_flag(f"BEEP_ON_{provider}_WAITING", env_flag("BEEP_ON_WAITING", True)):
         return
+    play_alert_beep(provider)
+
+
+def play_alert_beep(provider: str = "ALERT"):
+    provider = provider.upper()
 
     if env_flag("DIVOOM_BEEP", True) and DIVOOM_IP:
         try:
@@ -171,6 +191,41 @@ def emit_pending_beeps(codex_waiting: bool = False, claude_waiting: bool = False
         beep_for_interaction("CODEX")
     if claude_waiting:
         beep_for_interaction("CLAUDE")
+
+
+def emit_limit_alerts(events: list[tuple[str, str, str]]):
+    if not events:
+        return
+    delay_ms = int(os.getenv("DIVOOM_BEEP_AFTER_PANEL_DELAY_MS", "250"))
+    if env_flag("DIVOOM_BEEP", True) and delay_ms > 0:
+        time.sleep(delay_ms / 1000)
+    for provider, label, state in events:
+        print(f"[meter] Limit alert -> {provider.upper()} {label} {state}")
+        play_alert_beep(f"{provider.upper()}_{state.upper()}")
+
+
+def collect_limit_alerts(provider: str, usage: dict) -> list[tuple[str, str, str]]:
+    if not env_flag("BEEP_ON_LIMIT_ALERTS", True):
+        return []
+    if not env_flag(f"BEEP_ON_{provider.upper()}_LIMIT_ALERTS", True):
+        return []
+
+    events: list[tuple[str, str, str]] = []
+    zero_threshold = int(os.getenv("LIMIT_ZERO_AVAILABLE_PERCENT", "0"))
+    for field, label in LIMIT_FIELDS.get(provider, ()):
+        raw_value = usage.get(field)
+        if not isinstance(raw_value, (int, float)) or raw_value < 0:
+            continue
+        available_percent = to_available_percent(raw_value)
+        is_zero = available_percent <= zero_threshold
+        key = f"{provider}:{field}"
+        previous = LAST_LIMIT_ZERO_STATE.get(key)
+        LAST_LIMIT_ZERO_STATE[key] = is_zero
+        if previous is None or previous == is_zero:
+            continue
+        state = "exhausted" if is_zero else "reset"
+        events.append((provider, label, state))
+    return events
 
 
 def refresh_codex_interaction_state(beep: bool = True) -> bool:
@@ -385,6 +440,7 @@ def run_once(provider: str = "both", verbose: bool = True, hold_secs: float = VI
 
     sent_any = False
     ok = True
+    limit_events: list[tuple[str, str, str]] = []
 
     print(f"[meter] Enviando al Times Gate ({DIVOOM_IP})...")
     for name in provider_order:
@@ -405,6 +461,7 @@ def run_once(provider: str = "both", verbose: bool = True, hold_secs: float = VI
             continue
 
         ok &= sender(usage)
+        limit_events.extend(collect_limit_alerts(name, usage))
         sent_any = True
 
     if not sent_any:
@@ -414,6 +471,7 @@ def run_once(provider: str = "both", verbose: bool = True, hold_secs: float = VI
     if provider == "both":
         ok &= send_static_panels()
     emit_pending_beeps(codex_should_beep, claude_should_beep)
+    emit_limit_alerts(limit_events)
     return ok
 
 
