@@ -8,6 +8,13 @@ The project is designed to be open-source friendly: personal config, cookies,
 tokens, logs, and local GIF assets live in ignored files such as `.env`,
 `logs/`, and `local/`.
 
+## Platform Support
+
+This project currently supports **macOS only**. Ubuntu/Linux and Windows
+portability are planned, but the current service installer, resource monitor,
+local beep fallback, and some browser-session helpers still rely on macOS
+commands and paths.
+
 ## Features
 
 - Codex usage from local `~/.codex/sessions/**/*.jsonl`.
