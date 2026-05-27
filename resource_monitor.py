@@ -85,6 +85,20 @@ def _network_mbps() -> tuple[float, float]:
         return -1.0, -1.0
 
 
+def _bucket_percent(value: float) -> int:
+    if value < 0:
+        return -1
+    bucket = max(1, int(os.getenv("RESOURCE_PERCENT_BUCKET", "5")))
+    return int(round(value / bucket) * bucket)
+
+
+def _bucket_mbps(value: float) -> float:
+    if value < 0:
+        return -1.0
+    bucket = max(0.01, float(os.getenv("RESOURCE_NETWORK_BUCKET_MBPS", "0.25")))
+    return round(round(value / bucket) * bucket, 2)
+
+
 def _network_bytes() -> dict[str, float]:
     output = _run(["netstat", "-ibn"])
     ibytes = 0
@@ -133,10 +147,10 @@ def _write_network_sample(sample: dict[str, float]):
 def get_resources() -> dict[str, float]:
     ingress, egress = _network_mbps()
     return {
-        "cpu": round(_cpu_percent()),
-        "memory": round(_memory_percent()),
-        "disk": round(_disk_percent()),
+        "cpu": _bucket_percent(_cpu_percent()),
+        "memory": _bucket_percent(_memory_percent()),
+        "disk": _bucket_percent(_disk_percent()),
         "battery": round(_battery_percent()),
-        "net_in_mbps": ingress,
-        "net_out_mbps": egress,
+        "net_in_mbps": _bucket_mbps(ingress),
+        "net_out_mbps": _bucket_mbps(egress),
     }

@@ -22,6 +22,21 @@ class ResourceMonitorTests(unittest.TestCase):
         self.assertEqual(first, (-1.0, -1.0))
         self.assertEqual(second, (8.0, 4.0))
 
+    def test_get_resources_buckets_noisy_values(self):
+        with patch.dict("os.environ", {"RESOURCE_PERCENT_BUCKET": "5", "RESOURCE_NETWORK_BUCKET_MBPS": "0.25"}), \
+             patch("resource_monitor._cpu_percent", return_value=12.1), \
+             patch("resource_monitor._memory_percent", return_value=63.4), \
+             patch("resource_monitor._disk_percent", return_value=71.8), \
+             patch("resource_monitor._battery_percent", return_value=88.0), \
+             patch("resource_monitor._network_mbps", return_value=(1.12, 0.11)):
+            resources = resource_monitor.get_resources()
+
+        self.assertEqual(resources["cpu"], 10)
+        self.assertEqual(resources["memory"], 65)
+        self.assertEqual(resources["disk"], 70)
+        self.assertEqual(resources["net_in_mbps"], 1.0)
+        self.assertEqual(resources["net_out_mbps"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

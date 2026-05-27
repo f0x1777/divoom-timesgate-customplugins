@@ -247,6 +247,15 @@ Network interfaces default to `en0,en1`. Override them with:
 NETWORK_INTERFACES=en0,utun0
 ```
 
+Resource values are bucketed before rendering, so small sampling noise does not
+trigger a Divoom panel upload. Defaults are 5 percentage points for CPU, memory,
+and disk, and 0.25 Mbps for network throughput.
+
+```env
+RESOURCE_PERCENT_BUCKET=5
+RESOURCE_NETWORK_BUCKET_MBPS=0.25
+```
+
 ## Calendar Panel
 
 The `calendar` panel reads upcoming events from one or more ICS feeds. Multiple
