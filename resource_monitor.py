@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import shlex
 import subprocess
 import time
 
@@ -59,6 +60,42 @@ def _disk_percent() -> float:
         return max(0.0, min(100.0, usage.used / usage.total * 100.0))
     except Exception:
         return -1.0
+
+
+def _cpu_temperature_celsius() -> float:
+    commands: list[list[str]] = []
+    configured = os.getenv("CPU_TEMP_COMMAND", "").strip()
+    if configured:
+        commands.append(shlex.split(configured))
+    commands.extend([
+        ["osx-cpu-temp"],
+        ["istats", "cpu", "temp", "--value-only"],
+    ])
+
+    for command in commands:
+        try:
+            output = _run(command)
+        except Exception:
+            continue
+        temp = _parse_temperature_celsius(output)
+        if _valid_temperature_celsius(temp):
+            return temp
+    return -1.0
+
+
+def _parse_temperature_celsius(output: str) -> float:
+    match = re.search(r"(-?\d+(?:\.\d+)?)\s*([CF])?", output, re.IGNORECASE)
+    if not match:
+        return -1.0
+    value = float(match.group(1))
+    unit = (match.group(2) or "C").upper()
+    if unit == "F":
+        value = (value - 32.0) * 5.0 / 9.0
+    return round(value, 1)
+
+
+def _valid_temperature_celsius(value: float) -> bool:
+    return 10.0 <= value <= 120.0
 
 
 def _battery_percent() -> float:
@@ -150,6 +187,7 @@ def get_resources() -> dict[str, float]:
         "cpu": _bucket_percent(_cpu_percent()),
         "memory": _bucket_percent(_memory_percent()),
         "disk": _bucket_percent(_disk_percent()),
+        "cpu_temp_c": _cpu_temperature_celsius(),
         "battery": round(_battery_percent()),
         "net_in_mbps": _bucket_mbps(ingress),
         "net_out_mbps": _bucket_mbps(egress),

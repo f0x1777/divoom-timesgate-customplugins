@@ -19,7 +19,7 @@ class DashboardRendererTests(unittest.TestCase):
     def test_ops_panel_renders_bytes(self):
         gif = dashboard_renderer.render_ops_panel(
             [{"label": "BTC", "price": 123456, "change_pct": 1.2}],
-            {"cpu": 10, "memory": 20, "disk": 30, "net_in_mbps": 1.2, "net_out_mbps": 0.4},
+            {"cpu": 10, "memory": 20, "cpu_temp_c": 53.2, "net_in_mbps": 1.2, "net_out_mbps": 0.4},
             [],
         )
 
@@ -30,6 +30,10 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)
         self.assertEqual(dashboard_renderer._bar_fill_width(150, 68), 68)
+
+    def test_temp_metric_formats_celsius(self):
+        self.assertEqual(dashboard_renderer._temp_value(-1), "--C")
+        self.assertEqual(dashboard_renderer._temp_value(53.2), "53C")
 
     def test_health_panel_renders_bytes(self):
         gif = dashboard_renderer.render_health_panel(

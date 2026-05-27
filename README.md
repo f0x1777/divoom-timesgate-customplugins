@@ -26,7 +26,7 @@ commands and paths.
 - Limit exhaustion/reset alerts for Codex and Claude quotas.
 - Configurable panel layout across the Times Gate screens.
 - Market quotes for crypto, Stooq assets, and Argentina USD crypto quotes.
-- Resource monitor with CPU, memory, disk, and network in/out.
+- Resource monitor with CPU, memory, CPU temperature, and network in/out.
 - Calendar panel from one or more ICS feeds.
 - Service health panel for localhost apps, APIs, TCP ports, commands, and
   Tailscale status.
@@ -244,7 +244,7 @@ Resource metrics:
 
 - CPU usage
 - Memory usage
-- Disk usage
+- CPU temperature, when a supported local sensor command is available
 - Network ingress in Mbps
 - Network egress in Mbps
 
@@ -255,12 +255,20 @@ NETWORK_INTERFACES=en0,utun0
 ```
 
 Resource values are bucketed before rendering, so small sampling noise does not
-trigger a Divoom panel upload. Defaults are 5 percentage points for CPU, memory,
-and disk, and 0.25 Mbps for network throughput.
+trigger a Divoom panel upload. Defaults are 5 percentage points for CPU and
+memory, and 0.25 Mbps for network throughput.
 
 ```env
 RESOURCE_PERCENT_BUCKET=5
 RESOURCE_NETWORK_BUCKET_MBPS=0.25
+```
+
+CPU temperature is optional. On macOS, install `osx-cpu-temp` and keep:
+
+```env
+CPU_TEMP_COMMAND=osx-cpu-temp
+CPU_TEMP_MIN_C=35
+CPU_TEMP_MAX_C=100
 ```
 
 ## Calendar Panel
@@ -475,7 +483,7 @@ divoom.py               Local Divoom HTTP client
 codex_scraper.py        Codex usage and waiting-state reader
 claude_scraper.py       Claude usage and waiting-state reader
 market_data.py          Market quote providers
-resource_monitor.py     CPU/memory/disk/network metrics
+resource_monitor.py     CPU/memory/temperature/network metrics
 calendar_provider.py    ICS calendar provider
 service_health.py       HTTP/TCP/cmd/Tailscale health checks
 scripts/                macOS LaunchAgent helper

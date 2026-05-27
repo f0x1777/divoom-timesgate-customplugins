@@ -8,8 +8,8 @@ panel.
 1. Local resources panel
 
    Initial support exists in the combined `CENTER_PANEL=ops` screen: CPU,
-   memory, disk, and network ingress/egress. Thermal pressure and battery are
-   still good optional additions.
+   memory, CPU temperature, and network ingress/egress. Thermal pressure and
+   battery are still good optional additions.
 
 2. Service health panel
 
