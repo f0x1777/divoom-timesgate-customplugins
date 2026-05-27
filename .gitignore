@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+.DS_Store
 .divoom_token
 cookies.json
 logs/
