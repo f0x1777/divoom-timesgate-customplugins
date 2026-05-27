@@ -1,0 +1,514 @@
+#!/usr/bin/env python3
+"""
+Claude/Codex Meter — muestra limites de uso en el Divoom Times Gate.
+
+Uso:
+  python main.py --login     # primera vez: abre browser para login
+  python main.py --debug     # muestra que devuelven los scrapers (sin enviar)
+  python main.py             # modo normal: loop infinito
+  python main.py --once      # envía una vez y termina
+"""
+
+import argparse
+import os
+import re
+import subprocess
+import time
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    def load_dotenv():
+        return False
+
+load_dotenv()
+
+DIVOOM_IP      = os.getenv("DIVOOM_IP", "")
+DIVOOM_MAC     = os.getenv("DIVOOM_MAC", "")
+LCD_INDEX      = int(os.getenv("DIVOOM_LCD_INDEX", "4"))
+REFRESH_SECS   = int(os.getenv("REFRESH_SECONDS", "300"))
+STATE_REFRESH_SECS = int(os.getenv("STATE_REFRESH_SECONDS", "15"))
+VIEW_HOLD_SECS = float(os.getenv("DIVOOM_VIEW_HOLD_SECONDS", "5"))
+ANIM_SPEED_MS  = 600  # ms por frame de la animación del claw
+AUTO_DISCOVER  = os.getenv("DIVOOM_AUTO_DISCOVER", "1").lower() not in ("0", "false", "no")
+
+CODEX_WAITING_INPUT = False
+LAST_CODEX_WAITING_INPUT: bool | None = None
+LAST_CODEX_USAGE: dict | None = None
+CLAUDE_WAITING_INPUT = False
+LAST_CLAUDE_WAITING_INPUT: bool | None = None
+LAST_CLAUDE_USAGE: dict | None = None
+
+
+def pct_str(v: float) -> str:
+    return f"{int(v*100)}%" if v >= 0 else "?"
+
+
+def to_percent(v: float) -> int:
+    return max(0, int(v * 100)) if v >= 0 else 0
+
+
+def available_value(v: float) -> float:
+    return max(0.0, min(1.0, 1.0 - v)) if v >= 0 else -1.0
+
+
+def available_pct_str(v: float) -> str:
+    return pct_str(available_value(v))
+
+
+def to_available_percent(v: float) -> int:
+    return to_percent(available_value(v))
+
+
+def normalize_mac(value: str) -> str:
+    parts = re.split(r"[:-]", value.strip().lower())
+    return ":".join(part.zfill(2) for part in parts if part)
+
+
+def discover_divoom_ip_by_mac(mac: str = DIVOOM_MAC) -> str | None:
+    target = normalize_mac(mac)
+    if not target:
+        return None
+
+    try:
+        result = subprocess.run(
+            ["arp", "-a"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except Exception:
+        return None
+
+    for line in result.stdout.splitlines():
+        ip_match = re.search(r"\(([\d.]+)\)", line)
+        mac_match = re.search(r"\bat\s+([0-9a-fA-F:-]+)\s+", line)
+        if ip_match and mac_match and normalize_mac(mac_match.group(1)) == target:
+            return ip_match.group(1)
+    return None
+
+
+def apply_network_overrides(ip_arg: str | None):
+    global DIVOOM_IP
+
+    if ip_arg:
+        DIVOOM_IP = ip_arg
+        return
+
+    if not AUTO_DISCOVER:
+        return
+
+    discovered = discover_divoom_ip_by_mac()
+    if discovered and discovered != DIVOOM_IP:
+        print(f"[meter] Divoom descubierto por MAC: {DIVOOM_IP} -> {discovered}")
+        DIVOOM_IP = discovered
+
+
+def has_divoom_ip() -> bool:
+    if DIVOOM_IP:
+        return True
+    print("[meter] DIVOOM_IP is not configured. Copy .env.example to .env and set your device IP.")
+    return False
+
+
+def usage_is_known(usage: dict) -> bool:
+    return any(isinstance(v, (int, float)) and v >= 0 for v in usage.values())
+
+
+def env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.lower() in ("1", "true", "yes", "on")
+
+
+def codex_waiting_input() -> bool:
+    return env_flag("CODEX_WAITING_INPUT") or CODEX_WAITING_INPUT
+
+
+def claude_waiting_input() -> bool:
+    return env_flag("CLAUDE_WAITING_INPUT") or CLAUDE_WAITING_INPUT
+
+
+def beep_for_interaction(provider: str = "CODEX"):
+    provider = provider.upper()
+    if not env_flag(f"BEEP_ON_{provider}_WAITING", env_flag("BEEP_ON_WAITING", True)):
+        return
+
+    if env_flag("DIVOOM_BEEP", True):
+        try:
+            import divoom
+            if divoom.play_buzzer(
+                DIVOOM_IP,
+                int(os.getenv("DIVOOM_BEEP_TOTAL_MS", "1200")),
+                int(os.getenv("DIVOOM_BEEP_ACTIVE_MS", "200")),
+                int(os.getenv("DIVOOM_BEEP_OFF_MS", "150")),
+            ):
+                return
+        except Exception as e:
+            print(f"[meter] Divoom beep failed: {e}")
+
+    if not env_flag("MAC_BEEP_FALLBACK", True):
+        return
+    try:
+        subprocess.run(["osascript", "-e", "beep 1"], timeout=2, check=False)
+    except Exception as e:
+        print(f"[meter] Beep failed: {e}")
+
+
+def refresh_codex_interaction_state(beep: bool = True) -> bool:
+    global CODEX_WAITING_INPUT, LAST_CODEX_WAITING_INPUT
+
+    if not env_flag("CODEX_WAITING_AUTO", True):
+        CODEX_WAITING_INPUT = env_flag("CODEX_WAITING_INPUT")
+        return False
+
+    from codex_scraper import get_interaction_state
+
+    state = get_interaction_state()
+    waiting = bool(state.get("waiting_input"))
+    changed = LAST_CODEX_WAITING_INPUT is not None and waiting != LAST_CODEX_WAITING_INPUT
+    if changed:
+        print(f"[meter] Codex state -> {state.get('state')}")
+    if changed and waiting and beep:
+        beep_for_interaction()
+    CODEX_WAITING_INPUT = waiting
+    LAST_CODEX_WAITING_INPUT = waiting
+    return changed
+
+
+def refresh_claude_interaction_state(beep: bool = True) -> bool:
+    global CLAUDE_WAITING_INPUT, LAST_CLAUDE_WAITING_INPUT
+
+    if not env_flag("CLAUDE_WAITING_AUTO", True):
+        CLAUDE_WAITING_INPUT = env_flag("CLAUDE_WAITING_INPUT")
+        return False
+
+    from claude_scraper import get_interaction_state
+
+    state = get_interaction_state()
+    waiting = bool(state.get("waiting_input"))
+    changed = LAST_CLAUDE_WAITING_INPUT is not None and waiting != LAST_CLAUDE_WAITING_INPUT
+    if changed:
+        print(f"[meter] Claude state -> {state.get('state')}")
+    if changed and waiting and beep:
+        beep_for_interaction("CLAUDE")
+    CLAUDE_WAITING_INPUT = waiting
+    LAST_CLAUDE_WAITING_INPUT = waiting
+    return changed
+
+
+def send_limit_view(
+    label: str,
+    lcd_index: int,
+    primary_label: str,
+    primary_value: float,
+    secondary_label: str,
+    secondary_value: float,
+    context_label: str | None,
+    context_value: float | None,
+    fallback_text: str,
+) -> bool:
+    import divoom
+    from dashboard_renderer import render_claude_panel, render_codex_panel
+
+    primary_pct = to_available_percent(primary_value)
+    secondary_pct = to_available_percent(secondary_value)
+    context_pct = to_available_percent(context_value) if context_value is not None else None
+    current_usage = getattr(send_limit_view, "_usage", {})
+    if label == "claude":
+        gif = render_claude_panel(
+            {
+                "session": primary_value,
+                "week": secondary_value,
+                "design": context_value,
+                "sonnet": current_usage.get("sonnet", -1.0),
+                "session_reset": current_usage.get("session_reset"),
+                "week_reset": current_usage.get("week_reset"),
+                "design_reset": current_usage.get("design_reset"),
+                "sonnet_reset": current_usage.get("sonnet_reset"),
+            },
+            waiting=claude_waiting_input(),
+        )
+        asset_name = "claude.gif"
+    else:
+        gif = render_codex_panel(
+            {
+                "primary": primary_value,
+                "secondary": secondary_value,
+                "primary_reset": current_usage.get("primary_reset"),
+                "secondary_reset": current_usage.get("secondary_reset"),
+            },
+            waiting=codex_waiting_input(),
+        )
+        asset_name = "codex.gif"
+
+    divoom.set_brightness(DIVOOM_IP, 80)
+    ok = divoom.send_image_panel(
+        DIVOOM_IP,
+        lcd_index,
+        asset_name,
+        gif,
+    )
+
+    if ok:
+        print(
+            f"[meter] OK - {label} panels: "
+            f"{primary_label}={primary_pct}% {secondary_label}={secondary_pct}%"
+            + (f" {context_label}={context_pct}%" if context_label and context_pct is not None else "")
+        )
+        return True
+
+    print(f"[meter] Error al enviar paneles {label}; probando scoreboard fallback")
+    ok = divoom.send_scoreboard(DIVOOM_IP, blue=primary_pct, red=secondary_pct)
+    if ok:
+        print(f"[meter] OK - {label} fallback: blue={primary_pct}% red={secondary_pct}%")
+        divoom.send_text(DIVOOM_IP, fallback_text, color="#FF8800")
+    else:
+        print(f"[meter] Error al enviar {label}")
+    return ok
+
+
+def send_claude_usage(usage: dict) -> bool:
+    global LAST_CLAUDE_USAGE
+    LAST_CLAUDE_USAGE = usage
+    send_limit_view._usage = usage
+    return send_limit_view(
+        "claude",
+        4,
+        "session",
+        usage["session"],
+        "week",
+        usage["week"],
+        "design",
+        usage["design"],
+        f"CLAUDE S:{available_pct_str(usage['session'])} W:{available_pct_str(usage['week'])} D:{available_pct_str(usage['design'])}",
+    )
+
+
+def send_codex_usage(usage: dict) -> bool:
+    global LAST_CODEX_USAGE
+    LAST_CODEX_USAGE = usage
+    send_limit_view._usage = usage
+    return send_limit_view(
+        "codex",
+        0,
+        "primary",
+        usage["primary"],
+        "week",
+        usage["secondary"],
+        "ctx",
+        usage["context"],
+        f"CODEX P:{available_pct_str(usage['primary'])} W:{available_pct_str(usage['secondary'])} C:{available_pct_str(usage['context'])}",
+    )
+
+
+def send_static_panels() -> bool:
+    import divoom
+    from dashboard_renderer import render_clawd_panel, render_gengar_panel, render_openai_logo_panel
+
+    ok = True
+    ok &= divoom.send_image_panel(DIVOOM_IP, 1, "openai-logo.gif", render_openai_logo_panel(codex_waiting_input()))
+    ok &= divoom.send_image_panel(DIVOOM_IP, 2, "gengar.gif", render_gengar_panel())
+    ok &= divoom.send_image_panel(DIVOOM_IP, 3, "clawd.gif", render_clawd_panel(claude_waiting_input()))
+    return ok
+
+
+def get_claude_usage() -> dict:
+    from claude_scraper import get_usage
+
+    print("[meter] Obteniendo usage de claude.ai...")
+    return get_usage()
+
+
+def get_codex_usage() -> dict:
+    from codex_scraper import get_usage
+
+    print("[meter] Obteniendo usage de Codex local...")
+    return get_usage()
+
+
+def print_claude_usage(usage: dict):
+    print(f"  CLAUDE SESSION AVAILABLE -> {available_pct_str(usage['session'])}")
+    print(f"  CLAUDE WEEK AVAILABLE    -> {available_pct_str(usage['week'])}")
+    print(f"  CLAUDE DESIGN AVAILABLE  -> {available_pct_str(usage['design'])}")
+    print(f"  CLAUDE SONNET AVAILABLE  -> {available_pct_str(usage.get('sonnet', -1.0))}")
+
+
+def print_codex_usage(usage: dict):
+    print(f"  CODEX 5H AVAILABLE   -> {available_pct_str(usage['primary'])}")
+    print(f"  CODEX WEEK AVAILABLE -> {available_pct_str(usage['secondary'])}")
+    print(f"  CODEX CONTEXT FREE   -> {available_pct_str(usage['context'])}")
+
+
+def run_once(provider: str = "both", verbose: bool = True, hold_secs: float = VIEW_HOLD_SECS):
+    refresh_codex_interaction_state(beep=True)
+    refresh_claude_interaction_state(beep=True)
+    if provider == "both":
+        provider_order = ["codex", "claude"]
+    else:
+        provider_order = [provider]
+
+    sent_any = False
+    ok = True
+
+    print(f"[meter] Enviando al Times Gate ({DIVOOM_IP})...")
+    for name in provider_order:
+        if name == "codex":
+            usage = get_codex_usage()
+            sender = send_codex_usage
+            printer = print_codex_usage
+        else:
+            usage = get_claude_usage()
+            sender = send_claude_usage
+            printer = print_claude_usage
+
+        if verbose:
+            printer(usage)
+
+        if not usage_is_known(usage):
+            print(f"[meter] {name} desconocido; no envio 0% al Times Gate.")
+            continue
+
+        ok &= sender(usage)
+        sent_any = True
+
+    if not sent_any:
+        print("[meter] Usage desconocido; no envio 0% al Times Gate.")
+        print("[meter] Ejecuta --debug --provider codex/claude para ver el scraper o --test-display para probar el Divoom.")
+        return False
+    if provider == "both":
+        ok &= send_static_panels()
+    return ok
+
+
+def refresh_waiting_display_if_needed() -> bool:
+    codex_changed = refresh_codex_interaction_state(beep=True)
+    claude_changed = refresh_claude_interaction_state(beep=True)
+    if not codex_changed and not claude_changed:
+        return False
+    ok = True
+    if codex_changed and LAST_CODEX_USAGE and usage_is_known(LAST_CODEX_USAGE):
+        ok &= send_codex_usage(LAST_CODEX_USAGE)
+    if claude_changed and LAST_CLAUDE_USAGE and usage_is_known(LAST_CLAUDE_USAGE):
+        ok &= send_claude_usage(LAST_CLAUDE_USAGE)
+    ok &= send_static_panels()
+    return ok
+
+
+def sleep_with_state_watch(total_secs: int):
+    deadline = time.time() + max(0, total_secs)
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            return
+        time.sleep(min(max(1, STATE_REFRESH_SECS), remaining))
+        try:
+            refresh_waiting_display_if_needed()
+        except Exception as e:
+            print(f"[meter] State watch error: {e}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Claude/Codex Meter para Divoom Times Gate")
+    parser.add_argument("--login", action="store_true",
+                        help="Abre browser para guardar cookies de claude.ai")
+    parser.add_argument("--debug", action="store_true",
+                        help="Muestra que devuelven los scrapers (no envía al dispositivo)")
+    parser.add_argument("--once", action="store_true",
+                        help="Ejecuta una vez y termina")
+    parser.add_argument("--ping", action="store_true",
+                        help="Verifica que el Times Gate esté online")
+    parser.add_argument("--preview", action="store_true",
+                        help="Genera y guarda preview.png de la imagen (sin enviar)")
+    parser.add_argument("--test-display", action="store_true",
+                        help="Envia valores fijos al Times Gate sin consultar Claude/Codex")
+    parser.add_argument("--provider", choices=("claude", "codex", "both"),
+                        default=os.getenv("METER_PROVIDER", "both"),
+                        help="Integracion a mostrar")
+    parser.add_argument("--hold-secs", type=float, default=VIEW_HOLD_SECS,
+                        help="Segundos entre vistas cuando provider=both")
+    parser.add_argument("--ip",
+                        help="Sobrescribe DIVOOM_IP para esta ejecucion")
+    args = parser.parse_args()
+
+    apply_network_overrides(args.ip)
+
+    if args.login:
+        from claude_scraper import save_cookies_interactive
+        save_cookies_interactive()
+        return
+
+    if args.debug:
+        if args.provider in ("claude", "both"):
+            from claude_scraper import dump_raw_for_debug
+            dump_raw_for_debug()
+        if args.provider in ("codex", "both"):
+            from codex_scraper import dump_raw_for_debug
+            dump_raw_for_debug()
+        return
+
+    if args.ping:
+        if not has_divoom_ip():
+            return
+        import divoom
+        ok = divoom.ping(DIVOOM_IP)
+        info = divoom.get_device_info(DIVOOM_IP)
+        print(f"Times Gate {DIVOOM_IP}: {'online' if ok else 'sin respuesta'}")
+        print(f"Info: {info}")
+        return
+
+    if args.preview:
+        from renderer import render_frames
+        frames = render_frames(session=0.72, week=0.45, design=0.30)
+        frames[0].save("preview.png")
+        # Guardar GIF animado también
+        frames[0].save(
+            "preview.gif",
+            save_all=True,
+            append_images=frames[1:],
+            loop=0,
+            duration=ANIM_SPEED_MS,
+        )
+        print("Guardado preview.png y preview.gif con valores de ejemplo (72% / 45% / 30%)")
+        return
+
+    if args.test_display:
+        if not has_divoom_ip():
+            return
+        print(f"[meter] Enviando prueba al Times Gate ({DIVOOM_IP})...")
+        ok = True
+        if args.provider in ("claude", "both"):
+            ok &= send_claude_usage({"session": 0.72, "week": 0.45, "design": 0.30})
+        if args.provider == "both" and args.hold_secs > 0:
+            time.sleep(args.hold_secs)
+        if args.provider in ("codex", "both"):
+            ok &= send_codex_usage({"primary": 0.18, "secondary": 0.06, "context": 0.41})
+        print("[meter] Prueba enviada" if ok else "[meter] Prueba fallida")
+        return
+
+    if args.once:
+        if not has_divoom_ip():
+            return
+        run_once(provider=args.provider, hold_secs=args.hold_secs)
+        return
+
+    # Modo loop
+    if not has_divoom_ip():
+        return
+    print(f"[meter] Iniciando loop {args.provider} cada {REFRESH_SECS}s. Ctrl+C para detener.")
+    while True:
+        try:
+            run_once(provider=args.provider, hold_secs=args.hold_secs)
+        except KeyboardInterrupt:
+            print("\n[meter] Detenido.")
+            break
+        except Exception as e:
+            print(f"[meter] Error: {e}")
+        print(f"[meter] Próxima actualización en {REFRESH_SECS}s...")
+        sleep_with_state_watch(REFRESH_SECS)
+
+
+if __name__ == "__main__":
+    main()

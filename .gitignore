@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+.divoom_token
+cookies.json
+logs/
+__pycache__/
+tests/__pycache__/
+*.pyc
+.venv/
+venv/
+preview*.gif
+preview*.png
+source_*frame.png
+com.nico.*.plist
+local/
