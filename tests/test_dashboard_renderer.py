@@ -26,6 +26,19 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertIsInstance(gif, bytes)
         self.assertGreater(len(gif), 100)
 
+    def test_usage_panels_stay_static_when_waiting(self):
+        codex = dashboard_renderer.render_codex_panel(
+            {"primary": 0.1, "secondary": 0.2, "primary_reset": "2026-05-27T15:00:00-03:00"},
+            waiting=True,
+        )
+        claude = dashboard_renderer.render_claude_panel(
+            {"session": 0.1, "week": 0.2, "design": 0.3, "sonnet": 0.4},
+            waiting=True,
+        )
+
+        self.assertEqual(self._gif_frame_count(codex), 1)
+        self.assertEqual(self._gif_frame_count(claude), 1)
+
     def test_resource_bar_width_is_clamped(self):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)
