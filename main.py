@@ -43,6 +43,7 @@ CLAUDE_WAITING_INPUT = False
 LAST_CLAUDE_WAITING_INPUT: bool | None = None
 LAST_CLAUDE_USAGE: dict | None = None
 LAST_LIMIT_ZERO_STATE: dict[str, bool] = {}
+LAST_CALENDAR_ALERT_KEYS: set[str] = set()
 
 LIMIT_FIELDS = {
     "codex": (
@@ -205,6 +206,47 @@ def emit_limit_alerts(events: list[tuple[str, str, str]]):
     for provider, label, state in events:
         print(f"[meter] Limit alert -> {provider.upper()} {label} {state}")
         play_alert_beep(f"{provider.upper()}_{state.upper()}")
+
+
+def emit_calendar_alerts(events: list[dict]):
+    if not events:
+        return
+    delay_ms = int(os.getenv("DIVOOM_BEEP_AFTER_PANEL_DELAY_MS", "250"))
+    if env_flag("DIVOOM_BEEP", True) and delay_ms > 0:
+        time.sleep(delay_ms / 1000)
+    for _event in events:
+        print("[meter] Calendar event alert")
+        play_alert_beep("CALENDAR_EVENT")
+
+
+def collect_calendar_event_alerts() -> list[dict]:
+    if not env_flag("BEEP_ON_CALENDAR_EVENTS", True):
+        return []
+    try:
+        from calendar_provider import get_due_events
+
+        window_seconds = int(os.getenv("CALENDAR_EVENT_ALERT_WINDOW_SECONDS", "90"))
+        events = get_due_events(window_seconds=window_seconds, max_items=int(os.getenv("CALENDAR_EVENT_ALERT_MAX", "3")))
+    except Exception as e:
+        print(f"[meter] Calendar alert error: {e}")
+        return []
+
+    alerts = []
+    for event in events:
+        key = _calendar_event_key(event)
+        if key in LAST_CALENDAR_ALERT_KEYS:
+            continue
+        LAST_CALENDAR_ALERT_KEYS.add(key)
+        alerts.append(event)
+    return alerts
+
+
+def _calendar_event_key(event: dict) -> str:
+    uid = str(event.get("uid") or "").strip()
+    start = str(event.get("start") or "").strip()
+    if uid:
+        return f"{uid}:{start}"
+    return f"{start}:{str(event.get('summary') or '').strip()}"
 
 
 def collect_limit_alerts(provider: str, usage: dict) -> list[tuple[str, str, str]]:
@@ -510,6 +552,7 @@ def run_once(provider: str = "both", verbose: bool = True, hold_secs: float = VI
         ok &= send_static_panels()
     emit_pending_beeps(codex_should_beep, claude_should_beep)
     emit_limit_alerts(limit_events)
+    emit_calendar_alerts(collect_calendar_event_alerts())
     return ok
 
 
@@ -539,6 +582,7 @@ def sleep_with_state_watch(total_secs: int):
         time.sleep(min(max(1, STATE_REFRESH_SECS), remaining))
         try:
             refresh_waiting_display_if_needed()
+            emit_calendar_alerts(collect_calendar_event_alerts())
         except Exception as e:
             print(f"[meter] State watch error: {e}")
 

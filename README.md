@@ -19,7 +19,7 @@ tokens, logs, and local GIF assets live in ignored files such as `.env`,
 - Configurable panel layout across the Times Gate screens.
 - Market quotes for crypto, Stooq assets, and Argentina USD crypto quotes.
 - Resource monitor with CPU, memory, disk, and network in/out.
-- Calendar panel from an ICS feed.
+- Calendar panel from one or more ICS feeds.
 - Service health panel for localhost apps, APIs, TCP ports, commands, and
   Tailscale status.
 
@@ -242,6 +242,7 @@ CALENDAR_ICS_URL_3=https://example.com/nicolas-triton.ics
 CALENDAR_MAX_EVENTS=3
 CALENDAR_CACHE_SECONDS=300
 CALENDAR_LOOKAHEAD_HOURS=48
+CALENDAR_EVENT_ALERT_WINDOW_SECONDS=90
 ```
 
 For a single calendar, `CALENDAR_ICS_URL=https://...` still works. For a compact
@@ -251,6 +252,18 @@ links are accepted and normalized to `https://...` internally.
 The panel shows today's date, the next event prominently, and up to two
 additional upcoming events. If no calendar URL is configured, it shows
 `NO EVENTS`.
+
+Calendar event alerts can beep through the Divoom when an event reaches its
+start time:
+
+```env
+BEEP_ON_CALENDAR_EVENTS=1
+CALENDAR_EVENT_ALERT_WINDOW_SECONDS=90
+CALENDAR_EVENT_ALERT_MAX=3
+```
+
+The alert loop checks between full dashboard refreshes and only beeps once per
+event while the process is running.
 
 ## Service Health Panel
 
@@ -286,33 +299,6 @@ with:
 TAILSCALE_HEALTH=0
 ```
 
-## GIF And Logo Panels
-
-Local GIF paths:
-
-```env
-OPENAI_LOGO_GIF_PATH=assets/openai-logo.gif
-GENGAR_GIF_PATH=assets/center.gif
-CLAWD_GIF_PATH=assets/clawd.gif
-```
-
-OpenAI logo animation modes:
-
-```env
-OPENAI_LOGO_ANIMATION=spin-on-wait
-OPENAI_LOGO_SPIN_FRAMES=24
-OPENAI_LOGO_SPIN_FRAME_MS=70
-```
-
-Modes:
-
-- `spin-on-wait`: static normally, generated spin while Codex waits for input.
-- `spin`: generated spin all the time.
-- `source`: use source GIF frames.
-
-The Claw'd panel behaves similarly: static normally, animated when Claude is
-waiting for input.
-
 ## Beeps And Alerts
 
 Interaction alerts:
@@ -327,6 +313,12 @@ Limit alerts:
 - The first sample after startup only initializes state, so it does not beep if
   a limit was already at zero.
 
+Calendar alerts:
+
+- Beep once when a subscribed calendar event reaches its start time.
+- Multiple calendars are treated as one merged agenda.
+- Alerts do not print event titles to logs.
+
 Configuration:
 
 ```env
@@ -337,6 +329,7 @@ BEEP_ON_CLAUDE_WAITING=1
 BEEP_ON_LIMIT_ALERTS=1
 BEEP_ON_CODEX_LIMIT_ALERTS=1
 BEEP_ON_CLAUDE_LIMIT_ALERTS=1
+BEEP_ON_CALENDAR_EVENTS=1
 LIMIT_ZERO_AVAILABLE_PERCENT=0
 DIVOOM_BEEP=1
 DIVOOM_BEEP_TOTAL_MS=1800

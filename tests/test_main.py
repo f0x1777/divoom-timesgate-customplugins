@@ -18,6 +18,7 @@ class UsageDisplayTests(unittest.TestCase):
         main.LAST_CLAUDE_WAITING_INPUT = None
         main.LAST_CLAUDE_USAGE = None
         main.LAST_LIMIT_ZERO_STATE = {}
+        main.LAST_CALENDAR_ALERT_KEYS = set()
 
     def test_unknown_usage_is_not_known(self):
         usage = {"session": -1.0, "week": -1.0, "design": -1.0}
@@ -243,6 +244,26 @@ class UsageDisplayTests(unittest.TestCase):
                 "codex",
                 {"primary": 1.0, "secondary": 0.2, "context": 0.1},
             )
+
+        self.assertEqual(events, [])
+
+    def test_calendar_event_alerts_beep_once_per_event(self):
+        event = {"uid": "event-1", "start": "2026-05-27T10:00:00-03:00", "summary": "Private"}
+
+        with patch.dict(os.environ, {"BEEP_ON_CALENDAR_EVENTS": "1"}), \
+             patch("calendar_provider.get_due_events", return_value=[event]):
+            first = main.collect_calendar_event_alerts()
+            second = main.collect_calendar_event_alerts()
+
+        self.assertEqual(first, [event])
+        self.assertEqual(second, [])
+
+    def test_calendar_event_alerts_can_be_disabled(self):
+        event = {"uid": "event-1", "start": "2026-05-27T10:00:00-03:00"}
+
+        with patch.dict(os.environ, {"BEEP_ON_CALENDAR_EVENTS": "0"}), \
+             patch("calendar_provider.get_due_events", return_value=[event]):
+            events = main.collect_calendar_event_alerts()
 
         self.assertEqual(events, [])
 

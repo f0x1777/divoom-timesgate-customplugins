@@ -14,6 +14,7 @@ import requests
 CACHE_PATH = Path(os.getenv("CALENDAR_CACHE", "logs/calendar_cache.json"))
 CACHE_TTL_SECS = int(os.getenv("CALENDAR_CACHE_SECONDS", "300"))
 LOOKAHEAD_HOURS = int(os.getenv("CALENDAR_LOOKAHEAD_HOURS", "48"))
+PAST_EVENT_HOURS = int(os.getenv("CALENDAR_PAST_EVENT_HOURS", "1"))
 
 
 def _read_cache() -> list[dict[str, Any]] | None:
@@ -76,14 +77,18 @@ def _parse_ics(text: str) -> list[dict[str, Any]]:
             start_raw = current.get("DTSTART")
             start = _parse_datetime(start_raw) if start_raw else None
             if start:
-                events.append({"summary": _clean_text(summary), "start": start.isoformat()})
+                events.append({
+                    "uid": _clean_text(current.get("UID", "")),
+                    "summary": _clean_text(summary),
+                    "start": start.isoformat(),
+                })
             current = None
             continue
         if current is None or ":" not in line:
             continue
         key, value = line.split(":", 1)
         key = key.split(";", 1)[0]
-        if key in ("SUMMARY", "DTSTART"):
+        if key in ("UID", "SUMMARY", "DTSTART"):
             current[key] = value
     return events
 
@@ -129,10 +134,58 @@ def _normalize_calendar_url(url: str) -> str:
 
 
 def get_next_events(max_items: int = 1) -> list[dict[str, Any]]:
+    events = _load_events()
+    if not events:
+        return []
+
+    now = datetime.now().astimezone()
+    until = now + timedelta(hours=LOOKAHEAD_HOURS)
+    upcoming = []
+    for event in events:
+        try:
+            start = datetime.fromisoformat(event["start"]).astimezone()
+        except Exception:
+            continue
+        if now <= start <= until:
+            upcoming.append(event)
+    upcoming.sort(key=lambda item: item["start"])
+    return upcoming[:max_items]
+
+
+def get_due_events(window_seconds: int = 90, max_items: int = 3) -> list[dict[str, Any]]:
+    events = _load_events()
+    if not events:
+        return []
+
+    now = datetime.now().astimezone()
+    since = now - timedelta(seconds=max(1, window_seconds))
+    due = []
+    for event in events:
+        try:
+            start = datetime.fromisoformat(event["start"]).astimezone()
+        except Exception:
+            continue
+        if since <= start <= now:
+            due.append(event)
+    due.sort(key=lambda item: item["start"])
+    return due[:max_items]
+
+
+def _load_events() -> list[dict[str, Any]]:
     cached = _read_cache()
     if cached is not None:
-        return cached[:max_items]
+        return cached
 
+    events = _fetch_events()
+    if events:
+        _write_cache(_calendar_window(events))
+        return _calendar_window(events)
+
+    stale = _read_stale_cache()
+    return stale or []
+
+
+def _fetch_events() -> list[dict[str, Any]]:
     urls = _calendar_urls()
     if not urls:
         return []
@@ -149,25 +202,25 @@ def get_next_events(max_items: int = 1) -> list[dict[str, Any]]:
 
     if errors and not events:
         print(f"[calendar] Error: {', '.join(errors)}")
-        stale = _read_stale_cache()
-        return (stale or [])[:max_items]
-
-    if errors:
+    elif errors:
         print(f"[calendar] Partial errors: {', '.join(errors)}")
+    return events
 
+
+def _calendar_window(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     now = datetime.now().astimezone()
+    since = now - timedelta(hours=max(1, PAST_EVENT_HOURS))
     until = now + timedelta(hours=LOOKAHEAD_HOURS)
-    upcoming = []
+    window = []
     for event in events:
         try:
             start = datetime.fromisoformat(event["start"]).astimezone()
         except Exception:
             continue
-        if now <= start <= until:
-            upcoming.append(event)
-    upcoming.sort(key=lambda item: item["start"])
-    _write_cache(upcoming)
-    return upcoming[:max_items]
+        if since <= start <= until:
+            window.append(event)
+    window.sort(key=lambda item: item["start"])
+    return window
 
 
 def _read_stale_cache() -> list[dict[str, Any]] | None:
