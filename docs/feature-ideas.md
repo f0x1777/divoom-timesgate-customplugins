@@ -26,6 +26,13 @@ panel.
    Show failing CI, open PRs waiting for review, or the latest deploy status.
    Keep tokens in `.env` or an OS keychain, never in the repo.
 
+5. Pomodoro / focus timer
+
+   Add an optional local Pomodoro panel with configurable work/break lengths,
+   Divoom buzzer alerts when a block ends, and a simple state file so the timer
+   survives dashboard refreshes. It should be opt-in and independent from
+   calendar alerts.
+
 ## Later
 
 1. Calendar/focus panel
