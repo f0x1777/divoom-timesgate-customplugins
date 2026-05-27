@@ -201,7 +201,7 @@ Example:
 
 ```env
 CENTER_PANEL=ops
-MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,MEP:dolarapi:bolsa
+MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,USD:dolarapi:cripto
 OPS_MARKET_ROWS=3
 ```
 
@@ -218,11 +218,11 @@ Examples:
 ```env
 MARKET_ASSETS=BTC:crypto:bitcoin,ETH:crypto:ethereum,QQQ:stooq:qqq.us
 MARKET_ASSETS=SOL:crypto:solana,NVDA:stooq:nvda.us,SPY:stooq:spy.us
-MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,MEP:dolarapi:bolsa
+MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,USD:dolarapi:cripto
 ```
 
-For Argentina dollar quotes, `dolarapi:bolsa` uses DolarAPI's Dólar Bolsa
-endpoint, also known as Dólar MEP.
+For Argentina dollar quotes, `dolarapi:cripto` uses DolarAPI's Dólar Cripto
+endpoint, a crypto-market USD quote.
 
 Calendar support exists in the provider layer for future/alternate panels, but
 the compact ops panel uses the space for network ingress/egress by default.

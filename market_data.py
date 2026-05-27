@@ -13,7 +13,7 @@ import requests
 
 CACHE_PATH = Path(os.getenv("MARKET_CACHE", "logs/market_cache.json"))
 CACHE_TTL_SECS = int(os.getenv("MARKET_CACHE_SECONDS", "60"))
-DEFAULT_ASSETS = "BTC:crypto:bitcoin,SOL:crypto:solana,MEP:dolarapi:bolsa"
+DEFAULT_ASSETS = "BTC:crypto:bitcoin,SOL:crypto:solana,USD:dolarapi:cripto"
 
 
 def _read_cache() -> list[dict[str, Any]] | None:

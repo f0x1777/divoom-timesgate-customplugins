@@ -7,11 +7,11 @@ import market_data
 
 class MarketDataTests(unittest.TestCase):
     def test_parse_assets(self):
-        assets = market_data._parse_assets("BTC:crypto:bitcoin,SPY:stooq:spy.us,MEP:dolarapi:bolsa")
+        assets = market_data._parse_assets("BTC:crypto:bitcoin,SPY:stooq:spy.us,USD:dolarapi:cripto")
 
         self.assertEqual(
             assets,
-            [("BTC", "crypto", "bitcoin"), ("SPY", "stooq", "spy.us"), ("MEP", "dolarapi", "bolsa")],
+            [("BTC", "crypto", "bitcoin"), ("SPY", "stooq", "spy.us"), ("USD", "dolarapi", "cripto")],
         )
 
     def test_crypto_quotes(self):
@@ -38,16 +38,16 @@ class MarketDataTests(unittest.TestCase):
                 return {
                     "compra": 1190,
                     "venta": 1210,
-                    "casa": "bolsa",
-                    "nombre": "Dólar Bolsa",
+                    "casa": "cripto",
+                    "nombre": "Dólar Cripto",
                     "moneda": "USD",
                     "fechaActualizacion": "2026-05-27T12:00:00.000Z",
                 }
 
         with patch("requests.get", return_value=Response()):
-            quote = market_data._dolarapi_quote("MEP", "bolsa")
+            quote = market_data._dolarapi_quote("USD", "cripto")
 
-        self.assertEqual(quote["label"], "MEP")
+        self.assertEqual(quote["label"], "USD")
         self.assertEqual(quote["price"], 1210.0)
         self.assertEqual(quote["buy"], 1190.0)
         self.assertEqual(quote["source"], "dolarapi")
