@@ -16,10 +16,29 @@ Current integrations:
 ## Screen Layout
 
 - Screen 0: Codex usage, shown as available capacity.
-- Screen 1: OpenAI logo animation.
-- Screen 2: Center animation GIF, or combined ops panel when `CENTER_PANEL=ops`.
-- Screen 3: Claude status animation.
+- Screen 1: Configurable static panel, default OpenAI logo animation.
+- Screen 2: Configurable static panel, default center GIF.
+- Screen 3: Configurable static panel, default Claude status animation.
 - Screen 4: Claude usage, shown as available capacity.
+
+Static panel slots use these values:
+
+```env
+SCREEN_1_PANEL=openai
+SCREEN_2_PANEL=gengar
+SCREEN_3_PANEL=clawd
+```
+
+Supported panel values: `openai`, `ops`, `gengar`, `calendar`, `clawd`,
+`health`, `blank`.
+
+Example personal layout:
+
+```env
+SCREEN_1_PANEL=ops
+SCREEN_2_PANEL=gengar
+SCREEN_3_PANEL=calendar
+```
 
 GIF assets are local-only. Set their paths in `.env`; do not commit personal or
 licensed assets unless you have the right to redistribute them.
@@ -204,7 +223,8 @@ logs/meter.err.log
 
 ## Combined Ops Panel
 
-Set `CENTER_PANEL=ops` to replace the center GIF with one dense screen:
+Set `SCREEN_1_PANEL=ops`, `SCREEN_2_PANEL=ops`, or `CENTER_PANEL=ops` to show
+one dense screen:
 
 - Market quotes: crypto via CoinGecko, equities/ETFs via Stooq.
 - Local resources: CPU, memory, disk, and network ingress/egress in Mbps.
@@ -212,7 +232,7 @@ Set `CENTER_PANEL=ops` to replace the center GIF with one dense screen:
 Example:
 
 ```env
-CENTER_PANEL=ops
+SCREEN_1_PANEL=ops
 MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,USD:dolarapi:cripto
 OPS_MARKET_ROWS=3
 ```
@@ -236,8 +256,22 @@ MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,USD:dolarapi:cripto
 For Argentina dollar quotes, `dolarapi:cripto` uses DolarAPI's Dólar Cripto
 endpoint, a crypto-market USD quote.
 
-Calendar support exists in the provider layer for future/alternate panels, but
-the compact ops panel uses the space for network ingress/egress by default.
+The compact ops panel uses the lower area for network ingress/egress by default.
+
+## Calendar Panel
+
+Set any static slot to `calendar` to show the next events from an ICS feed:
+
+```env
+SCREEN_3_PANEL=calendar
+CALENDAR_ICS_URL=https://example.com/private-calendar.ics
+CALENDAR_MAX_EVENTS=3
+CALENDAR_CACHE_SECONDS=300
+CALENDAR_LOOKAHEAD_HOURS=48
+```
+
+The panel shows today's date, the next event prominently, and up to two
+additional upcoming events.
 
 ## Service Health Panel
 

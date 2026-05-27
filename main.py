@@ -32,6 +32,9 @@ VIEW_HOLD_SECS = float(os.getenv("DIVOOM_VIEW_HOLD_SECONDS", "5"))
 ANIM_SPEED_MS  = 600  # ms por frame de la animación del claw
 AUTO_DISCOVER  = os.getenv("DIVOOM_AUTO_DISCOVER", "1").lower() not in ("0", "false", "no")
 CENTER_PANEL    = os.getenv("CENTER_PANEL", "gif").lower()
+SCREEN_1_PANEL  = os.getenv("SCREEN_1_PANEL", "openai").lower()
+SCREEN_2_PANEL  = os.getenv("SCREEN_2_PANEL", CENTER_PANEL if CENTER_PANEL in ("ops", "health") else "gengar").lower()
+SCREEN_3_PANEL  = os.getenv("SCREEN_3_PANEL", "clawd").lower()
 
 CODEX_WAITING_INPUT = False
 LAST_CODEX_WAITING_INPUT: bool | None = None
@@ -377,18 +380,37 @@ def send_codex_usage(usage: dict) -> bool:
 
 def send_static_panels() -> bool:
     import divoom
-    from dashboard_renderer import render_clawd_panel, render_gengar_panel, render_openai_logo_panel
 
     ok = True
-    ok &= divoom.send_image_panel(DIVOOM_IP, 1, "openai-logo.gif", render_openai_logo_panel(codex_waiting_input()))
-    if CENTER_PANEL == "ops":
-        ok &= divoom.send_image_panel(DIVOOM_IP, 2, "ops.gif", render_ops_center_panel())
-    elif CENTER_PANEL == "health":
-        ok &= divoom.send_image_panel(DIVOOM_IP, 2, "health.gif", render_health_center_panel())
-    else:
-        ok &= divoom.send_image_panel(DIVOOM_IP, 2, "center.gif", render_gengar_panel())
-    ok &= divoom.send_image_panel(DIVOOM_IP, 3, "clawd.gif", render_clawd_panel(claude_waiting_input()))
+    ok &= divoom.send_image_panel(DIVOOM_IP, 1, f"{SCREEN_1_PANEL}.gif", render_static_panel(SCREEN_1_PANEL))
+    ok &= divoom.send_image_panel(DIVOOM_IP, 2, f"{SCREEN_2_PANEL}.gif", render_static_panel(SCREEN_2_PANEL))
+    ok &= divoom.send_image_panel(DIVOOM_IP, 3, f"{SCREEN_3_PANEL}.gif", render_static_panel(SCREEN_3_PANEL))
     return ok
+
+
+def render_static_panel(panel: str) -> bytes:
+    from dashboard_renderer import (
+        render_blank_panel,
+        render_calendar_panel,
+        render_clawd_panel,
+        render_gengar_panel,
+        render_openai_logo_panel,
+    )
+
+    panel = panel.lower()
+    if panel == "openai":
+        return render_openai_logo_panel(codex_waiting_input())
+    if panel == "ops":
+        return render_ops_center_panel()
+    if panel == "health":
+        return render_health_center_panel()
+    if panel == "calendar":
+        return render_calendar_center_panel()
+    if panel == "clawd":
+        return render_clawd_panel(claude_waiting_input())
+    if panel in ("gengar", "center"):
+        return render_gengar_panel()
+    return render_blank_panel()
 
 
 def render_ops_center_panel() -> bytes:
@@ -408,6 +430,13 @@ def render_health_center_panel() -> bytes:
     from service_health import get_health
 
     return render_health_panel(get_health(max_checks=int(os.getenv("HEALTH_MAX_CHECKS", "5"))))
+
+
+def render_calendar_center_panel() -> bytes:
+    from calendar_provider import get_next_events
+    from dashboard_renderer import render_calendar_panel
+
+    return render_calendar_panel(get_next_events(max_items=int(os.getenv("CALENDAR_MAX_EVENTS", "3"))))
 
 
 def get_claude_usage() -> dict:

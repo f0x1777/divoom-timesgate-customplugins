@@ -423,6 +423,57 @@ def render_health_panel(health: dict[str, Any]) -> bytes:
     return _save_gif([img], duration=1000)
 
 
+def render_calendar_panel(events: list[dict[str, Any]]) -> bytes:
+    img = _base("#090A12")
+    draw = ImageDraw.Draw(img)
+
+    now = datetime.now().astimezone()
+    draw.text((5, 5), "CAL", font=FONT_MED, fill="#CBD5E1")
+    draw.text((58, 4), now.strftime("%a %d"), font=FONT_ROW, fill="#94A3B8")
+    draw.line((5, 27, 122, 27), fill="#1E293B")
+
+    if not events:
+        draw.text((16, 52), "NO EVENTS", font=FONT_MED, fill="#94A3B8")
+        draw.text((19, 75), "NEXT 48H", font=FONT_ROW, fill="#64748B")
+        return _save_gif([img], duration=1000)
+
+    first = events[0]
+    start = _event_start(first)
+    time_label = start.strftime("%H:%M") if start else "--:--"
+    day_label = start.strftime("%a") if start else "--"
+    summary = _fit_text(draw, str(first.get("summary", "Event")), FONT_ROW, 116)
+    draw.text((7, 34), time_label, font=FONT_BIG, fill="#FBBF24")
+    draw.text((78, 39), day_label, font=FONT_ROW, fill="#94A3B8")
+    draw.text((7, 64), summary, font=FONT_ROW, fill="#FFFFFF")
+
+    y = 84
+    for event in events[1:3]:
+        start = _event_start(event)
+        row_time = start.strftime("%H:%M") if start else "--:--"
+        row_summary = _fit_text(draw, str(event.get("summary", "Event")), FONT_SMALL, 72)
+        draw.text((7, y), row_time, font=FONT_ROW, fill="#A78BFA")
+        draw.text((48, y + 1), row_summary, font=FONT_SMALL, fill="#CBD5E1")
+        y += 17
+    return _save_gif([img], duration=1000)
+
+
+def _event_start(event: dict[str, Any]) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(event.get("start"))).astimezone()
+    except Exception:
+        return None
+
+
+def _fit_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int) -> str:
+    clean = " ".join(text.split())
+    if draw.textlength(clean, font=font) <= max_width:
+        return clean
+    ellipsis = "."
+    while clean and draw.textlength(clean + ellipsis, font=font) > max_width:
+        clean = clean[:-1]
+    return (clean + ellipsis) if clean else ellipsis
+
+
 def _compact_count(value: Any) -> str:
     if not isinstance(value, int) or value < 0:
         return "--"

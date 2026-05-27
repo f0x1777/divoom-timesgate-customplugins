@@ -90,6 +90,27 @@ class UsageDisplayTests(unittest.TestCase):
         self.assertEqual(fake_divoom.calls[1][1][1:3], (0, "codex.gif"))
         self.assertIsInstance(fake_divoom.calls[1][1][3], bytes)
 
+    def test_static_panels_use_configured_layout_slots(self):
+        fake_divoom = types.SimpleNamespace()
+        fake_divoom.calls = []
+        fake_divoom.send_image_panel = (
+            lambda *args: fake_divoom.calls.append(args) or True
+        )
+
+        previous = (main.SCREEN_1_PANEL, main.SCREEN_2_PANEL, main.SCREEN_3_PANEL)
+        main.SCREEN_1_PANEL = "ops"
+        main.SCREEN_2_PANEL = "gengar"
+        main.SCREEN_3_PANEL = "calendar"
+        try:
+            with patch.dict(sys.modules, {"divoom": fake_divoom}), \
+                 patch("main.render_static_panel", side_effect=lambda panel: panel.encode()):
+                ok = main.send_static_panels()
+        finally:
+            main.SCREEN_1_PANEL, main.SCREEN_2_PANEL, main.SCREEN_3_PANEL = previous
+
+        self.assertTrue(ok)
+        self.assertEqual([call[1:3] for call in fake_divoom.calls], [(1, "ops.gif"), (2, "gengar.gif"), (3, "calendar.gif")])
+
     def test_codex_waiting_transition_beeps_once(self):
         main.CODEX_WAITING_INPUT = False
         main.LAST_CODEX_WAITING_INPUT = False

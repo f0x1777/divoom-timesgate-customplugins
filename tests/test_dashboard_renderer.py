@@ -45,6 +45,14 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertIsInstance(gif, bytes)
         self.assertGreater(len(gif), 100)
 
+    def test_calendar_panel_renders_bytes(self):
+        gif = dashboard_renderer.render_calendar_panel(
+            [{"summary": "Deep work block", "start": "2026-05-27T15:30:00-03:00"}]
+        )
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+
     def test_compact_count_formats_large_tailscale_peer_counts(self):
         self.assertEqual(dashboard_renderer._compact_count(-1), "--")
         self.assertEqual(dashboard_renderer._compact_count(42), "42")
