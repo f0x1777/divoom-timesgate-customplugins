@@ -42,7 +42,7 @@ DIVOOM_IP=192.168.1.123
 DIVOOM_MAC=
 CLAUDE_ORG_ID=
 OPENAI_LOGO_GIF_PATH=assets/openai-logo.gif
-OPENAI_LOGO_ANIMATION=spin
+OPENAI_LOGO_ANIMATION=spin-on-wait
 GENGAR_GIF_PATH=assets/center.gif
 CLAWD_GIF_PATH=assets/clawd.gif
 CENTER_PANEL=gif
@@ -57,17 +57,24 @@ https://claude.ai/api/organizations/<CLAUDE_ORG_ID>/usage
 
 ## Logo Animation
 
-Screen 1 can turn any configured OpenAI logo asset into a generated GIF. The
-default is a smooth spin:
+Screen 1 can turn any configured OpenAI logo asset into a generated GIF when
+Codex is waiting for user interaction. By default it is static while Codex is
+active, then spins only while waiting:
 
 ```env
-OPENAI_LOGO_ANIMATION=spin
+OPENAI_LOGO_ANIMATION=spin-on-wait
 OPENAI_LOGO_SPIN_FRAMES=24
 OPENAI_LOGO_SPIN_FRAME_MS=70
 ```
 
-Set `OPENAI_LOGO_ANIMATION=source` to use the source GIF frames without adding a
-generated rotation.
+Modes:
+
+- `spin-on-wait`: static normally, generated spin while waiting.
+- `spin`: generated spin all the time.
+- `source`: use the source GIF frames.
+
+The Claude status animation behaves the same way: the Claw'd panel is static
+normally and animates only when Claude is waiting for user interaction.
 
 ## Interaction Beeps
 

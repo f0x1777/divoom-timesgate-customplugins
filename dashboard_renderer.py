@@ -200,13 +200,14 @@ def render_openai_logo_panel(waiting: bool = False) -> bytes:
     if not marks:
         return render_blank_panel()
 
-    mode = os.getenv("OPENAI_LOGO_ANIMATION", "spin").lower()
-    if mode == "spin":
+    mode = os.getenv("OPENAI_LOGO_ANIMATION", "spin-on-wait").lower()
+    if mode == "spin" or (mode == "spin-on-wait" and waiting):
         return _render_spinning_mark(marks[0], waiting=waiting)
 
     frames: list[Image.Image] = []
     durations: list[int] = []
-    for idx, mark in enumerate(marks):
+    display_marks = marks if mode == "source" and waiting else [marks[0]]
+    for idx, mark in enumerate(display_marks):
         canvas = Image.new("RGBA", (W, H), (0, 0, 0, 255))
         x = (W - mark.width) // 2
         y = (H - mark.height) // 2
@@ -214,7 +215,7 @@ def render_openai_logo_panel(waiting: bool = False) -> bytes:
             y -= 2
         canvas.alpha_composite(mark, (x, y))
         frames.append(canvas.convert("RGB"))
-        durations.append(source_durations[idx])
+        durations.append(source_durations[min(idx, len(source_durations) - 1)])
 
     if waiting and len(frames) == 1:
         frames.append(frames[0].resize((W, H)))
@@ -271,7 +272,7 @@ def render_clawd_panel(waiting: bool = False) -> bytes:
     source = Image.open(path)
     frames: list[Image.Image] = []
     durations: list[int] = []
-    for frame in ImageSequence.Iterator(source):
+    for idx, frame in enumerate(ImageSequence.Iterator(source)):
         rgba = frame.convert("RGBA")
         bg = rgba.getpixel((0, 0))[:3]
         mask = Image.new("L", rgba.size, 0)
@@ -308,6 +309,8 @@ def render_clawd_panel(waiting: bool = False) -> bytes:
         canvas.alpha_composite(rgba, (x, y))
         frames.append(canvas.convert("RGB"))
         durations.append(int(frame.info.get("duration", 30) or 30))
+        if not waiting:
+            break
 
     if not frames:
         return render_blank_panel()

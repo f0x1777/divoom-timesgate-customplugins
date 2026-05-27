@@ -24,6 +24,23 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertGreater(len(gif), 100)
 
     def test_openai_logo_spin_generates_multiple_frames(self):
+        gif = self._render_test_logo({"OPENAI_LOGO_ANIMATION": "spin", "OPENAI_LOGO_SPIN_FRAMES": "8"})
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+        self.assertEqual(self._gif_frame_count(gif), 8)
+
+    def test_openai_logo_spin_on_wait_is_static_until_waiting(self):
+        normal = self._render_test_logo({"OPENAI_LOGO_ANIMATION": "spin-on-wait", "OPENAI_LOGO_SPIN_FRAMES": "8"})
+        waiting = self._render_test_logo(
+            {"OPENAI_LOGO_ANIMATION": "spin-on-wait", "OPENAI_LOGO_SPIN_FRAMES": "8"},
+            waiting=True,
+        )
+
+        self.assertEqual(self._gif_frame_count(normal), 1)
+        self.assertEqual(self._gif_frame_count(waiting), 8)
+
+    def _render_test_logo(self, env: dict[str, str], waiting: bool = False) -> bytes:
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "logo.gif"
             img = Image.new("RGB", (64, 64), "#FFFFFF")
@@ -32,24 +49,21 @@ class DashboardRendererTests(unittest.TestCase):
                     img.putpixel((x, y), (0, 0, 0))
             img.save(path, format="GIF")
 
+            merged_env = {"OPENAI_LOGO_GIF_PATH": str(path)}
+            merged_env.update(env)
             with patch.dict(
                 "os.environ",
-                {
-                    "OPENAI_LOGO_GIF_PATH": str(path),
-                    "OPENAI_LOGO_ANIMATION": "spin",
-                    "OPENAI_LOGO_SPIN_FRAMES": "8",
-                },
+                merged_env,
             ):
-                gif = dashboard_renderer.render_openai_logo_panel()
+                return dashboard_renderer.render_openai_logo_panel(waiting=waiting)
 
-        self.assertIsInstance(gif, bytes)
-        self.assertGreater(len(gif), 100)
+    def _gif_frame_count(self, gif: bytes) -> int:
         with TemporaryDirectory() as tmp:
             rendered = Path(tmp) / "rendered.gif"
             rendered.write_bytes(gif)
             result = Image.open(rendered)
             try:
-                self.assertEqual(result.n_frames, 8)
+                return result.n_frames
             finally:
                 result.close()
 
