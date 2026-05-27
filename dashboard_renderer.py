@@ -33,6 +33,7 @@ FONT_TITLE = _font(12, True)
 FONT_BIG = _font(20, True)
 FONT_MED = _font(14, True)
 FONT_ROW = _font(10, True)
+FONT_MARKET_PRICE = _font(11, True)
 FONT_SMALL = _font(8)
 FONT_TINY = _font(7)
 
@@ -364,8 +365,8 @@ def render_ops_panel(
             change = _signed_pct(quote.get("change_pct"))
             color = "#22C55E" if _num(quote.get("change_pct")) >= 0 else "#FB7185"
             draw.text((5, y), label, font=FONT_ROW, fill="#CBD5E1")
-            draw.text((37, y), price, font=FONT_ROW, fill="#FFFFFF")
-            draw.text((83, y), change, font=FONT_SMALL, fill=color)
+            draw.text((36, y - 1), price, font=FONT_MARKET_PRICE, fill="#FFFFFF")
+            draw.text((86, y), change, font=FONT_SMALL, fill=color)
             y += 15
     else:
         draw.text((5, y), "MARKETS --", font=FONT_ROW, fill="#64748B")
