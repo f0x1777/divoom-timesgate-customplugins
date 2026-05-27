@@ -10,6 +10,7 @@ Uso:
 """
 
 import argparse
+import hashlib
 import os
 import re
 import subprocess
@@ -44,6 +45,7 @@ LAST_CLAUDE_WAITING_INPUT: bool | None = None
 LAST_CLAUDE_USAGE: dict | None = None
 LAST_LIMIT_ZERO_STATE: dict[str, bool] = {}
 LAST_CALENDAR_ALERT_KEYS: set[str] = set()
+LAST_PANEL_DIGESTS: dict[int, str] = {}
 
 LIMIT_FIELDS = {
     "codex": (
@@ -141,6 +143,22 @@ def env_flag(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.lower() in ("1", "true", "yes", "on")
+
+
+def send_image_panel_if_changed(lcd_index: int, asset_name: str, gif: bytes, reason: str = "") -> bool:
+    import divoom
+
+    digest = hashlib.sha256(gif).hexdigest()
+    skip_unchanged = env_flag("DIVOOM_SKIP_UNCHANGED_PANELS", True)
+    if skip_unchanged and LAST_PANEL_DIGESTS.get(lcd_index) == digest:
+        label = reason or asset_name
+        print(f"[meter] SKIP - screen {lcd_index} unchanged ({label})")
+        return True
+
+    ok = divoom.send_image_panel(DIVOOM_IP, lcd_index, asset_name, gif)
+    if ok:
+        LAST_PANEL_DIGESTS[lcd_index] = digest
+    return ok
 
 
 def codex_waiting_input() -> bool:
@@ -361,12 +379,7 @@ def send_limit_view(
         asset_name = "codex.gif"
 
     divoom.set_brightness(DIVOOM_IP, 80)
-    ok = divoom.send_image_panel(
-        DIVOOM_IP,
-        lcd_index,
-        asset_name,
-        gif,
-    )
+    ok = send_image_panel_if_changed(lcd_index, asset_name, gif, label)
 
     if ok:
         print(
@@ -421,12 +434,10 @@ def send_codex_usage(usage: dict) -> bool:
 
 
 def send_static_panels() -> bool:
-    import divoom
-
     ok = True
-    ok &= divoom.send_image_panel(DIVOOM_IP, 1, f"{SCREEN_1_PANEL}.gif", render_static_panel(SCREEN_1_PANEL))
-    ok &= divoom.send_image_panel(DIVOOM_IP, 2, f"{SCREEN_2_PANEL}.gif", render_static_panel(SCREEN_2_PANEL))
-    ok &= divoom.send_image_panel(DIVOOM_IP, 3, f"{SCREEN_3_PANEL}.gif", render_static_panel(SCREEN_3_PANEL))
+    ok &= send_image_panel_if_changed(1, f"{SCREEN_1_PANEL}.gif", render_static_panel(SCREEN_1_PANEL), SCREEN_1_PANEL)
+    ok &= send_image_panel_if_changed(2, f"{SCREEN_2_PANEL}.gif", render_static_panel(SCREEN_2_PANEL), SCREEN_2_PANEL)
+    ok &= send_image_panel_if_changed(3, f"{SCREEN_3_PANEL}.gif", render_static_panel(SCREEN_3_PANEL), SCREEN_3_PANEL)
     return ok
 
 

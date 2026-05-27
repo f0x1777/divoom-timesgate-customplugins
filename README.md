@@ -14,6 +14,7 @@ tokens, logs, and local GIF assets live in ignored files such as `.env`,
 - Claude usage from the Claude web usage API via local browser session data.
 - Codex and Claude waiting-for-input detection from local session logs.
 - Divoom Times Gate screen rendering through local HTTP commands.
+- Skips unchanged panel uploads to avoid refresh/loading flicker.
 - Divoom buzzer alerts through `Device/PlayBuzzer`.
 - Limit exhaustion/reset alerts for Codex and Claude quotas.
 - Configurable panel layout across the Times Gate screens.
@@ -62,6 +63,24 @@ SCREEN_1_PANEL=ops
 SCREEN_2_PANEL=center
 SCREEN_3_PANEL=calendar
 ```
+
+## Refresh Behavior
+
+The app wakes up every `REFRESH_SECONDS` for usage and panel refreshes, and
+every `STATE_REFRESH_SECONDS` for waiting-state and calendar-alert checks.
+Rendered panels are hashed in memory, so an unchanged screen is not uploaded to
+the Divoom again. This avoids the Times Gate returning to a loading state just
+because the loop ran.
+
+```env
+REFRESH_SECONDS=300
+STATE_REFRESH_SECONDS=15
+DIVOOM_SKIP_UNCHANGED_PANELS=1
+```
+
+Set `DIVOOM_SKIP_UNCHANGED_PANELS=0` only when debugging a device that needs a
+forced repaint on every cycle. The cache lives in the running process, so it is
+cleared when the service restarts.
 
 ## Quick Start
 
