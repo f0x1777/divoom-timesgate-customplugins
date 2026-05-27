@@ -42,6 +42,7 @@ DIVOOM_IP=192.168.1.123
 DIVOOM_MAC=
 CLAUDE_ORG_ID=
 OPENAI_LOGO_GIF_PATH=assets/openai-logo.gif
+OPENAI_LOGO_ANIMATION=spin
 GENGAR_GIF_PATH=assets/center.gif
 CLAWD_GIF_PATH=assets/clawd.gif
 CENTER_PANEL=gif
@@ -53,6 +54,20 @@ usage request URL:
 ```text
 https://claude.ai/api/organizations/<CLAUDE_ORG_ID>/usage
 ```
+
+## Logo Animation
+
+Screen 1 can turn any configured OpenAI logo asset into a generated GIF. The
+default is a smooth spin:
+
+```env
+OPENAI_LOGO_ANIMATION=spin
+OPENAI_LOGO_SPIN_FRAMES=24
+OPENAI_LOGO_SPIN_FRAME_MS=70
+```
+
+Set `OPENAI_LOGO_ANIMATION=source` to use the source GIF frames without adding a
+generated rotation.
 
 ## Interaction Beeps
 

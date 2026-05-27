@@ -187,26 +187,26 @@ def render_openai_logo_panel(waiting: bool = False) -> bytes:
         return render_blank_panel()
 
     source = Image.open(path)
+    marks: list[Image.Image] = []
+    source_durations: list[int] = []
+    for frame in ImageSequence.Iterator(source):
+        mark = _foreground_mark(frame.convert("RGB"), threshold=55)
+        if mark:
+            mark.thumbnail((114, 114), Image.Resampling.LANCZOS)
+            marks.append(mark)
+            source_durations.append(int(frame.info.get("duration", 120) or 120))
+    source.close()
+
+    if not marks:
+        return render_blank_panel()
+
+    mode = os.getenv("OPENAI_LOGO_ANIMATION", "spin").lower()
+    if mode == "spin":
+        return _render_spinning_mark(marks[0], waiting=waiting)
+
     frames: list[Image.Image] = []
     durations: list[int] = []
-    for idx, frame in enumerate(ImageSequence.Iterator(source)):
-        rgb = frame.convert("RGB")
-        bg = rgb.getpixel((0, 0))
-        mask = Image.new("L", rgb.size, 0)
-        px = rgb.load()
-        mp = mask.load()
-        for y in range(rgb.height):
-            for x in range(rgb.width):
-                r, g, b = px[x, y]
-                dist = abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2])
-                if dist > 55:
-                    mp[x, y] = 255
-        bbox = mask.getbbox()
-        if bbox:
-            mask = mask.crop(bbox)
-        mark = Image.new("RGBA", mask.size, (255, 255, 255, 0))
-        mark.putalpha(mask)
-        mark.thumbnail((114, 114), Image.Resampling.LANCZOS)
+    for idx, mark in enumerate(marks):
         canvas = Image.new("RGBA", (W, H), (0, 0, 0, 255))
         x = (W - mark.width) // 2
         y = (H - mark.height) // 2
@@ -214,13 +214,51 @@ def render_openai_logo_panel(waiting: bool = False) -> bytes:
             y -= 2
         canvas.alpha_composite(mark, (x, y))
         frames.append(canvas.convert("RGB"))
-        durations.append(int(frame.info.get("duration", 120) or 120))
+        durations.append(source_durations[idx])
 
-    if not frames:
-        return render_blank_panel()
     if waiting and len(frames) == 1:
         frames.append(frames[0].resize((W, H)))
         durations.append(120)
+    return _save_gif_with_durations(frames, durations)
+
+
+def _foreground_mark(rgb: Image.Image, threshold: int) -> Image.Image | None:
+    bg = rgb.getpixel((0, 0))
+    mask = Image.new("L", rgb.size, 0)
+    px = rgb.load()
+    mp = mask.load()
+    for y in range(rgb.height):
+        for x in range(rgb.width):
+            r, g, b = px[x, y]
+            dist = abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2])
+            if dist > threshold:
+                mp[x, y] = 255
+    bbox = mask.getbbox()
+    if not bbox:
+        return None
+    mask = mask.crop(bbox)
+    mark = Image.new("RGBA", mask.size, (255, 255, 255, 0))
+    mark.putalpha(mask)
+    return mark
+
+
+def _render_spinning_mark(mark: Image.Image, waiting: bool = False) -> bytes:
+    frames: list[Image.Image] = []
+    durations: list[int] = []
+    frame_count = int(os.getenv("OPENAI_LOGO_SPIN_FRAMES", "24"))
+    duration = int(os.getenv("OPENAI_LOGO_SPIN_FRAME_MS", "70"))
+    for idx in range(max(4, frame_count)):
+        angle = -360 * idx / max(4, frame_count)
+        rotated = mark.rotate(angle, resample=Image.Resampling.BICUBIC, expand=True)
+        rotated.thumbnail((116, 116), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGBA", (W, H), (0, 0, 0, 255))
+        x = (W - rotated.width) // 2
+        y = (H - rotated.height) // 2
+        if waiting and idx % 6 in (1, 2):
+            y -= 2
+        canvas.alpha_composite(rotated, (x, y))
+        frames.append(canvas.convert("RGB"))
+        durations.append(duration)
     return _save_gif_with_durations(frames, durations)
 
 
