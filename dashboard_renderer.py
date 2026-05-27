@@ -360,7 +360,7 @@ def render_ops_panel(
     if quotes:
         for quote in quotes[:3]:
             label = str(quote.get("label", "?"))[:4]
-            price = _short_price(quote.get("price"))
+            price = _short_price(quote.get("price"), quote)
             change = _signed_pct(quote.get("change_pct"))
             color = "#22C55E" if _num(quote.get("change_pct")) >= 0 else "#FB7185"
             draw.text((5, y), label, font=FONT_ROW, fill="#CBD5E1")
@@ -422,10 +422,12 @@ def _event_label(event: dict[str, Any]) -> str:
     return f"{time_label} {summary}"[:23]
 
 
-def _short_price(value: Any) -> str:
+def _short_price(value: Any, quote: dict[str, Any] | None = None) -> str:
     price = _num(value)
     if price < 0:
         return "--"
+    if quote and quote.get("source") == "dolarapi":
+        return f"{price:.0f}"
     if price >= 1000:
         return f"{price / 1000:.1f}K"
     if price >= 100:

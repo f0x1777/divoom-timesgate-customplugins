@@ -13,6 +13,9 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertEqual(dashboard_renderer._pct(dashboard_renderer._available_from_used(0.08)), "92%")
         self.assertEqual(dashboard_renderer._pct(dashboard_renderer._available_from_used(0.83)), "17%")
 
+    def test_dolarapi_price_is_not_k_abbreviated(self):
+        self.assertEqual(dashboard_renderer._short_price(1435.9, {"source": "dolarapi"}), "1436")
+
     def test_ops_panel_renders_bytes(self):
         gif = dashboard_renderer.render_ops_panel(
             [{"label": "BTC", "price": 123456, "change_pct": 1.2}],

@@ -13,7 +13,7 @@ import requests
 
 CACHE_PATH = Path(os.getenv("MARKET_CACHE", "logs/market_cache.json"))
 CACHE_TTL_SECS = int(os.getenv("MARKET_CACHE_SECONDS", "60"))
-DEFAULT_ASSETS = "BTC:crypto:bitcoin,ETH:crypto:ethereum,SPY:stooq:spy.us"
+DEFAULT_ASSETS = "BTC:crypto:bitcoin,SOL:crypto:solana,MEP:dolarapi:bolsa"
 
 
 def _read_cache() -> list[dict[str, Any]] | None:
@@ -100,6 +100,28 @@ def _stooq_quote(label: str, symbol: str) -> dict[str, Any] | None:
     }
 
 
+def _dolarapi_quote(label: str, symbol: str) -> dict[str, Any] | None:
+    response = requests.get(
+        f"https://dolarapi.com/v1/dolares/{symbol}",
+        timeout=8,
+    )
+    response.raise_for_status()
+    data = response.json()
+    sale = _float(data.get("venta"))
+    buy = _float(data.get("compra"))
+    if sale is None:
+        return None
+    return {
+        "label": label,
+        "price": sale,
+        "buy": buy,
+        "change_pct": 0.0,
+        "currency": "ARS",
+        "source": "dolarapi",
+        "updated_at": data.get("fechaActualizacion", ""),
+    }
+
+
 def _float(value: Any) -> float | None:
     try:
         if value in (None, "", "N/D"):
@@ -121,6 +143,10 @@ def get_quotes(max_items: int = 3) -> list[dict[str, Any]]:
         for label, kind, symbol in assets:
             if kind == "stooq":
                 quote = _stooq_quote(label, symbol)
+                if quote:
+                    quotes.append(quote)
+            elif kind == "dolarapi":
+                quote = _dolarapi_quote(label, symbol)
                 if quote:
                     quotes.append(quote)
     except Exception as e:

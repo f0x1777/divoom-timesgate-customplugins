@@ -201,7 +201,7 @@ Example:
 
 ```env
 CENTER_PANEL=ops
-MARKET_ASSETS=BTC:crypto:bitcoin,ETH:crypto:ethereum,SPY:stooq:spy.us
+MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,MEP:dolarapi:bolsa
 OPS_MARKET_ROWS=3
 ```
 
@@ -210,6 +210,7 @@ Asset format:
 ```text
 LABEL:crypto:coingecko-id
 LABEL:stooq:stooq-symbol
+LABEL:dolarapi:dolarapi-casa
 ```
 
 Examples:
@@ -217,10 +218,14 @@ Examples:
 ```env
 MARKET_ASSETS=BTC:crypto:bitcoin,ETH:crypto:ethereum,QQQ:stooq:qqq.us
 MARKET_ASSETS=SOL:crypto:solana,NVDA:stooq:nvda.us,SPY:stooq:spy.us
+MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,MEP:dolarapi:bolsa
 ```
 
-Calendar support is intentionally optional. If `CALENDAR_ICS_URL` is empty, the
-calendar row shows `CAL --` and the rest of the panel still works.
+For Argentina dollar quotes, `dolarapi:bolsa` uses DolarAPI's Dólar Bolsa
+endpoint, also known as Dólar MEP.
+
+Calendar support exists in the provider layer for future/alternate panels, but
+the compact ops panel uses the space for network ingress/egress by default.
 
 ## What Else Can This Show?
 
