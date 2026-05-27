@@ -8,7 +8,8 @@ panel.
 1. Local resources panel
 
    Initial support exists in the combined `CENTER_PANEL=ops` screen: CPU,
-   memory, disk, and battery. Thermal pressure is still a good next addition.
+   memory, disk, and network ingress/egress. Thermal pressure and battery are
+   still good optional additions.
 
 2. Service health panel
 
@@ -29,8 +30,9 @@ panel.
 
 1. Calendar/focus panel
 
-   Initial ICS support exists in the combined `CENTER_PANEL=ops` screen. Native
-   Google Calendar / Apple Calendar integrations are still future work.
+   ICS support exists in the provider layer, but it is not displayed in the
+   compact ops panel by default. Native Google Calendar / Apple Calendar
+   integrations are still future work.
 
 2. Docker/OrbStack panel
 

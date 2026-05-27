@@ -355,11 +355,8 @@ def render_ops_panel(
 ) -> bytes:
     img = _base("#080A0D")
     draw = ImageDraw.Draw(img)
-    draw.text((5, 4), "OPS", font=FONT_ROW, fill="#FFFFFF")
-    draw.text((33, 4), datetime.now().strftime("%H:%M"), font=FONT_ROW, fill="#7DD3FC")
-    draw.line((5, 18, 122, 18), fill="#1E293B")
 
-    y = 23
+    y = 4
     if quotes:
         for quote in quotes[:3]:
             label = str(quote.get("label", "?"))[:4]
@@ -374,23 +371,45 @@ def render_ops_panel(
         draw.text((5, y), "MARKETS --", font=FONT_ROW, fill="#64748B")
         y += 16
 
-    draw.line((5, 70, 122, 70), fill="#1E293B")
-    _draw_metric(draw, 5, 77, "CPU", resources.get("cpu"), "#38BDF8")
-    _draw_metric(draw, 66, 77, "MEM", resources.get("memory"), "#A78BFA")
-    _draw_metric(draw, 5, 93, "DSK", resources.get("disk"), "#FBBF24")
-    _draw_metric(draw, 66, 93, "BAT", resources.get("battery"), "#34D399")
-
-    draw.line((5, 110, 122, 110), fill="#1E293B")
-    event_text = _event_label(events[0]) if events else "CAL --"
-    draw.text((5, 115), event_text, font=FONT_SMALL, fill="#E2E8F0")
+    draw.line((5, 54, 122, 54), fill="#1E293B")
+    _draw_metric(draw, 5, 63, "CPU", _pct_value(resources.get("cpu")), "#38BDF8")
+    _draw_metric(draw, 66, 63, "MEM", _pct_value(resources.get("memory")), "#A78BFA")
+    _draw_metric(draw, 5, 88, "DSK", _pct_value(resources.get("disk")), "#FBBF24")
+    _draw_network_metric(
+        draw,
+        66,
+        88,
+        resources.get("net_in_mbps"),
+        resources.get("net_out_mbps"),
+    )
     return _save_gif([img], duration=1000)
 
 
-def _draw_metric(draw: ImageDraw.ImageDraw, x: int, y: int, label: str, value: Any, color: str):
-    pct = _num(value)
-    text = "--" if pct < 0 else f"{round(pct):02.0f}%"
-    draw.text((x, y), label, font=FONT_SMALL, fill="#94A3B8")
-    draw.text((x + 25, y - 1), text, font=FONT_ROW, fill=color)
+def _draw_metric(draw: ImageDraw.ImageDraw, x: int, y: int, label: str, text: str, color: str):
+    draw.text((x, y), label, font=FONT_ROW, fill="#94A3B8")
+    draw.text((x, y + 11), text, font=FONT_MED, fill=color)
+
+
+def _draw_network_metric(draw: ImageDraw.ImageDraw, x: int, y: int, inbound: Any, outbound: Any):
+    draw.text((x, y), "NET", font=FONT_ROW, fill="#94A3B8")
+    draw.text((x, y + 11), f"{_mbps(inbound)}", font=FONT_ROW, fill="#34D399")
+    draw.text((x + 31, y + 12), f"/{_mbps(outbound)}", font=FONT_SMALL, fill="#FB7185")
+
+
+def _pct_value(value: Any) -> str:
+    number = _num(value)
+    return "--" if number < 0 else f"{round(number):02.0f}%"
+
+
+def _mbps(value: Any) -> str:
+    number = _num(value)
+    if number < 0:
+        return "--"
+    if number >= 100:
+        return f"{number:.0f}"
+    if number >= 10:
+        return f"{number:.1f}"
+    return f"{number:.2f}"
 
 
 def _event_label(event: dict[str, Any]) -> str:

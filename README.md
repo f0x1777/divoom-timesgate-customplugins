@@ -195,8 +195,7 @@ logs/meter.err.log
 Set `CENTER_PANEL=ops` to replace the center GIF with one dense screen:
 
 - Market quotes: crypto via CoinGecko, equities/ETFs via Stooq.
-- Local resources: CPU, memory, disk, battery.
-- Calendar: next event from an optional public/private ICS URL.
+- Local resources: CPU, memory, disk, and network ingress/egress in Mbps.
 
 Example:
 
@@ -204,7 +203,6 @@ Example:
 CENTER_PANEL=ops
 MARKET_ASSETS=BTC:crypto:bitcoin,ETH:crypto:ethereum,SPY:stooq:spy.us
 OPS_MARKET_ROWS=3
-CALENDAR_ICS_URL=
 ```
 
 Asset format:

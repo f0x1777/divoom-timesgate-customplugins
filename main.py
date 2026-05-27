@@ -320,7 +320,6 @@ def send_static_panels() -> bool:
 
 
 def render_ops_center_panel() -> bytes:
-    from calendar_provider import get_next_events
     from dashboard_renderer import render_ops_panel
     from market_data import get_quotes
     from resource_monitor import get_resources
@@ -328,7 +327,7 @@ def render_ops_center_panel() -> bytes:
     return render_ops_panel(
         get_quotes(max_items=int(os.getenv("OPS_MARKET_ROWS", "3"))),
         get_resources(),
-        get_next_events(max_items=1),
+        [],
     )
 
 

@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
+
+
+NETWORK_SAMPLE_PATH = Path(os.getenv("NETWORK_SAMPLE_CACHE", "logs/network_sample.json"))
 
 
 def _run(args: list[str], timeout: int = 3) -> str:
@@ -64,10 +70,73 @@ def _battery_percent() -> float:
         return -1.0
 
 
+def _network_mbps() -> tuple[float, float]:
+    try:
+        current = _network_bytes()
+        previous = _read_network_sample()
+        _write_network_sample(current)
+        if not previous:
+            return -1.0, -1.0
+        elapsed = max(0.001, current["timestamp"] - previous.get("timestamp", 0))
+        ingress = max(0, current["ibytes"] - previous.get("ibytes", 0)) * 8 / elapsed / 1_000_000
+        egress = max(0, current["obytes"] - previous.get("obytes", 0)) * 8 / elapsed / 1_000_000
+        return round(ingress, 1), round(egress, 1)
+    except Exception:
+        return -1.0, -1.0
+
+
+def _network_bytes() -> dict[str, float]:
+    output = _run(["netstat", "-ibn"])
+    ibytes = 0
+    obytes = 0
+    interfaces = _network_interfaces()
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) < 10 or parts[0] == "Name":
+            continue
+        name = parts[0].split("*", 1)[0]
+        if interfaces and name not in interfaces:
+            continue
+        try:
+            ibytes += int(parts[6])
+            obytes += int(parts[9])
+        except (ValueError, IndexError):
+            continue
+    return {"timestamp": time.time(), "ibytes": ibytes, "obytes": obytes}
+
+
+def _network_interfaces() -> set[str]:
+    raw = os.getenv("NETWORK_INTERFACES", "").strip()
+    if raw:
+        return {item.strip() for item in raw.split(",") if item.strip()}
+    return {"en0", "en1"}
+
+
+def _read_network_sample() -> dict[str, float] | None:
+    if not NETWORK_SAMPLE_PATH.exists():
+        return None
+    try:
+        data = json.loads(NETWORK_SAMPLE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _write_network_sample(sample: dict[str, float]):
+    try:
+        NETWORK_SAMPLE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        NETWORK_SAMPLE_PATH.write_text(json.dumps(sample), encoding="utf-8")
+    except Exception as e:
+        print(f"[resources] Network sample write skipped: {e}")
+
+
 def get_resources() -> dict[str, float]:
+    ingress, egress = _network_mbps()
     return {
         "cpu": round(_cpu_percent()),
         "memory": round(_memory_percent()),
         "disk": round(_disk_percent()),
         "battery": round(_battery_percent()),
+        "net_in_mbps": ingress,
+        "net_out_mbps": egress,
     }

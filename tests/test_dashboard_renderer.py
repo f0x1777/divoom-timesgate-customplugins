@@ -16,8 +16,8 @@ class DashboardRendererTests(unittest.TestCase):
     def test_ops_panel_renders_bytes(self):
         gif = dashboard_renderer.render_ops_panel(
             [{"label": "BTC", "price": 123456, "change_pct": 1.2}],
-            {"cpu": 10, "memory": 20, "disk": 30, "battery": 80},
-            [{"summary": "Focus", "start": "2026-05-26T22:00:00-03:00"}],
+            {"cpu": 10, "memory": 20, "disk": 30, "net_in_mbps": 1.2, "net_out_mbps": 0.4},
+            [],
         )
 
         self.assertIsInstance(gif, bytes)
