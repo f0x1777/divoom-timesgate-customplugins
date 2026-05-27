@@ -371,29 +371,51 @@ def render_ops_panel(
         draw.text((5, y), "MARKETS --", font=FONT_ROW, fill="#64748B")
         y += 16
 
-    draw.line((5, 54, 122, 54), fill="#1E293B")
-    _draw_metric(draw, 5, 63, "CPU", _pct_value(resources.get("cpu")), "#38BDF8")
-    _draw_metric(draw, 66, 63, "MEM", _pct_value(resources.get("memory")), "#A78BFA")
-    _draw_metric(draw, 5, 88, "DSK", _pct_value(resources.get("disk")), "#FBBF24")
+    draw.line((5, 53, 122, 53), fill="#1E293B")
+    _draw_metric_bar(draw, 5, 58, "CPU", resources.get("cpu"), "#38BDF8")
+    _draw_metric_bar(draw, 5, 73, "MEM", resources.get("memory"), "#A78BFA")
+    _draw_metric_bar(draw, 5, 88, "DSK", resources.get("disk"), "#FBBF24")
     _draw_network_metric(
         draw,
-        66,
-        88,
+        5,
+        106,
         resources.get("net_in_mbps"),
         resources.get("net_out_mbps"),
     )
     return _save_gif([img], duration=1000)
 
 
-def _draw_metric(draw: ImageDraw.ImageDraw, x: int, y: int, label: str, text: str, color: str):
+def _draw_metric_bar(draw: ImageDraw.ImageDraw, x: int, y: int, label: str, value: Any, color: str):
+    text = _pct_value(value)
     draw.text((x, y), label, font=FONT_ROW, fill="#94A3B8")
-    draw.text((x, y + 11), text, font=FONT_MED, fill=color)
+
+    pct_x = 123
+    pct_bbox = draw.textbbox((0, 0), text, font=FONT_ROW)
+    draw.text((pct_x - (pct_bbox[2] - pct_bbox[0]), y), text, font=FONT_ROW, fill=color)
+
+    bar_x = x + 30
+    bar_y = y + 3
+    bar_w = 56
+    bar_h = 7
+    draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill="#111827", outline="#334155")
+    fill_w = _bar_fill_width(value, bar_w - 2)
+    if fill_w > 0:
+        draw.rectangle((bar_x + 1, bar_y + 1, bar_x + fill_w, bar_y + bar_h - 1), fill=color)
 
 
 def _draw_network_metric(draw: ImageDraw.ImageDraw, x: int, y: int, inbound: Any, outbound: Any):
-    draw.text((x, y), "NET", font=FONT_ROW, fill="#94A3B8")
-    draw.text((x, y + 11), f"{_mbps(inbound)}", font=FONT_ROW, fill="#34D399")
-    draw.text((x + 31, y + 12), f"/{_mbps(outbound)}", font=FONT_SMALL, fill="#FB7185")
+    draw.line((5, y - 5, 122, y - 5), fill="#1E293B")
+    draw.text((x, y), "IN Mb/s", font=FONT_SMALL, fill="#94A3B8")
+    draw.text((x + 65, y), "OUT Mb/s", font=FONT_SMALL, fill="#94A3B8")
+    draw.text((x, y + 9), _mbps(inbound), font=FONT_MED, fill="#34D399")
+    draw.text((x + 65, y + 9), _mbps(outbound), font=FONT_MED, fill="#FB7185")
+
+
+def _bar_fill_width(value: Any, width: int) -> int:
+    number = _num(value)
+    if number < 0:
+        return 0
+    return max(0, min(width, round(width * number / 100)))
 
 
 def _pct_value(value: Any) -> str:

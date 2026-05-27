@@ -26,6 +26,11 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertIsInstance(gif, bytes)
         self.assertGreater(len(gif), 100)
 
+    def test_resource_bar_width_is_clamped(self):
+        self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
+        self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)
+        self.assertEqual(dashboard_renderer._bar_fill_width(150, 68), 68)
+
     def test_openai_logo_spin_generates_multiple_frames(self):
         gif = self._render_test_logo({"OPENAI_LOGO_ANIMATION": "spin", "OPENAI_LOGO_SPIN_FRAMES": "8"})
 
