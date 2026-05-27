@@ -547,7 +547,7 @@ def _temp_fill_width(value: Any, width: int) -> int:
     number = _num(value)
     if number < 0:
         return 0
-    low = float(os.getenv("CPU_TEMP_MIN_C", "35"))
+    low = float(os.getenv("CPU_TEMP_MIN_C", "30"))
     high = float(os.getenv("CPU_TEMP_MAX_C", "100"))
     span = max(1.0, high - low)
     ratio = (number - low) / span

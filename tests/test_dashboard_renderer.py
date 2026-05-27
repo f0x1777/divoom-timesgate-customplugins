@@ -35,6 +35,12 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertEqual(dashboard_renderer._temp_value(-1), "--C")
         self.assertEqual(dashboard_renderer._temp_value(53.2), "53C")
 
+    def test_temp_bar_uses_30_to_100_default_range(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(dashboard_renderer._temp_fill_width(30, 70), 0)
+            self.assertEqual(dashboard_renderer._temp_fill_width(65, 70), 35)
+            self.assertEqual(dashboard_renderer._temp_fill_width(100, 70), 70)
+
     def test_health_panel_renders_bytes(self):
         gif = dashboard_renderer.render_health_panel(
             {

@@ -268,7 +268,7 @@ can report temperatures without `sudo`:
 
 ```env
 CPU_TEMP_COMMAND=macmon pipe -s 1 -i 1000
-CPU_TEMP_MIN_C=35
+CPU_TEMP_MIN_C=30
 CPU_TEMP_MAX_C=100
 ```
 
