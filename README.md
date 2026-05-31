@@ -1,57 +1,34 @@
 # Divoom Times Gate AI Feats
 
-Ambient dashboard for a Divoom Times Gate. It shows AI assistant usage limits,
-market/resource telemetry, calendar context, visual waiting states, and optional
-Divoom buzzer alerts.
+Ambient AI/operator dashboard for a Divoom Times Gate. It renders Codex and
+Claude usage limits, assistant waiting states, market/resource telemetry,
+calendar context, service health, local mascot GIFs, and optional Divoom buzzer
+alerts.
 
-The project is designed to be open-source friendly: personal config, cookies,
-tokens, logs, and local GIF assets live in ignored files such as `.env`,
-`logs/`, and `local/`.
+The repository is intended to be open-source friendly. Personal values stay in
+ignored local files such as `.env`, `.divoom_token`, `logs/`, and `local/`.
 
-## Platform Support
+## Current Support
 
-This project currently supports **macOS only**. Ubuntu/Linux and Windows
-portability are planned, but the current service installer, resource monitor,
-local beep fallback, and some browser-session helpers still rely on macOS
-commands and paths.
+This project currently supports **macOS only**.
 
-## Features
+The code may partially run elsewhere, but the service installer, local resource
+monitoring, local beep fallback, and some browser/session helpers are still
+macOS-oriented. Linux and Windows portability are tracked as future work.
 
-- Codex usage from local `~/.codex/sessions/**/*.jsonl`.
-- Claude usage from the Claude web usage API via local browser session data.
-- Codex and Claude waiting-for-input detection from local session logs.
-- Divoom Times Gate screen rendering through local HTTP commands.
-- Skips unchanged panel uploads to avoid refresh/loading flicker.
-- Divoom buzzer alerts through `Device/PlayBuzzer`.
-- Limit exhaustion/reset alerts for Codex and Claude quotas.
-- Configurable panel layout across the Times Gate screens.
-- Market quotes for crypto, Stooq assets, and Argentina USD crypto quotes.
-- Resource monitor with CPU, memory, CPU temperature, and network in/out.
-- Calendar panel from one or more ICS feeds.
-- Service health panel for localhost apps, APIs, TCP ports, commands, and
-  Tailscale status.
+## What It Shows
 
-## Screen Model
+The app controls five useful Times Gate screens:
 
-The Times Gate has five useful screen slots in this app:
-
-| Screen | Default | Purpose |
+| Screen | Default role | Typical content |
 | --- | --- | --- |
-| `0` | Codex usage | Codex 5h and weekly availability |
-| `1` | `openai` | Configurable static/ambient panel |
-| `2` | `center` | Configurable static/ambient panel |
-| `3` | `status` | Configurable static/ambient panel |
-| `4` | Claude usage | Claude 5h and weekly availability |
+| `0` | Codex usage | 5h/WK availability, Codex pet status |
+| `1` | Ambient panel | OpenAI logo, ops, health, blank |
+| `2` | Ambient panel | Center mascot, ops, health, blank |
+| `3` | Ambient panel | Calendar, status GIF, Clauddy, blank |
+| `4` | Claude usage | 5h/WK availability, Clauddy status |
 
-Static panel slots are configured with:
-
-```env
-SCREEN_1_PANEL=openai
-SCREEN_2_PANEL=center
-SCREEN_3_PANEL=status
-```
-
-Supported panel values:
+Supported static panel values:
 
 ```text
 openai
@@ -64,7 +41,7 @@ health
 blank
 ```
 
-Example layout:
+Common layout:
 
 ```env
 SCREEN_1_PANEL=ops
@@ -72,134 +49,24 @@ SCREEN_2_PANEL=center
 SCREEN_3_PANEL=calendar
 ```
 
-## Refresh Behavior
+## Features
 
-The app wakes up every `REFRESH_SECONDS` for usage and panel refreshes, and
-every `STATE_REFRESH_SECONDS` for waiting-state and calendar-alert checks.
-Rendered panels are hashed in memory, so an unchanged screen is not uploaded to
-the Divoom again. This avoids the Times Gate returning to a loading state just
-because the loop ran.
-
-```env
-REFRESH_SECONDS=300
-STATE_REFRESH_SECONDS=15
-DIVOOM_SKIP_UNCHANGED_PANELS=1
-DIVOOM_IMMUTABLE_PANELS=center,gengar,mascot
-DIVOOM_MIN_PANEL_UPLOAD_SECONDS=300
-CODEX_USAGE_WATCH=1
-```
-
-Set `DIVOOM_SKIP_UNCHANGED_PANELS=0` only when debugging a device that needs a
-forced repaint on every cycle. The cache lives in the running process, so it is
-cleared when the service restarts.
-
-Panels listed in `DIVOOM_IMMUTABLE_PANELS` are sent once after the process
-starts and then skipped completely on later refreshes. This is intended for
-fixed art panels such as a center mascot GIF.
-
-`DIVOOM_MIN_PANEL_UPLOAD_SECONDS` throttles uploads per physical screen. This
-reduces the Times Gate loading flash because the firmware briefly shows loading
-whenever it receives a new GIF-backed panel.
-
-`CODEX_USAGE_WATCH=1` checks local Codex usage during the short state-watch loop,
-so Codex limit changes can repaint between full dashboard refreshes.
-
-## Assistant Status
-
-The Codex and Claude usage panels include a compact status badge inspired by
-the `chilling` / `working` / `alerting` model used by
-`bugzmanov/divoom-minitoo/apps/clauddy`.
-
-```text
-IDLE -> chilling
-WORK -> working
-WAIT -> alerting / waiting for operator input
-```
-
-Status is inferred from local Codex and Claude session logs. You can override it
-temporarily with:
-
-```env
-CODEX_INTERACTION_STATUS=working
-CLAUDE_INTERACTION_STATUS=alerting
-```
-
-Set `SCREEN_3_PANEL=clauddy` to show the full Clauddy-style face panel. The
-source assets are expected at `CLAUDDY_ASSETS_DIR` with these filenames:
-
-```text
-chilling.gif
-working.gif
-alerting.gif
-```
-
-The original MiniToo Clauddy artwork is `160x160`; Times Gate panels are
-rendered at `128x128`, so the app scales the original GIF frames with
-nearest-neighbor sampling and otherwise leaves the artwork untouched.
-
-By default this panel follows Claude state:
-
-```env
-CLAUDDY_STATUS_PROVIDER=claude
-INTERACTION_STATE_STALE_SECONDS=3600
-```
-
-Set `CLAUDDY_STATUS_PROVIDER=combined` if you want either Codex or Claude to
-drive the face. The stale-state timeout prevents old session log entries from
-leaving the face stuck on `WORK`.
-
-The Claude usage screen uses this same Clauddy renderer by default, with larger
-`5H` and `WK` badges over the face:
-
-```env
-CLAUDE_USAGE_PANEL_STYLE=clauddy
-CLAUDDY_PANEL_BG=#000000
-CLAUDDY_BADGE_BG=#000000
-CLAUDDY_BADGE_OUTLINE=#334155
-CLAUDDY_REPLACE_SOURCE_BG=1
-```
-
-Set `CLAUDE_USAGE_PANEL_STYLE=classic` to restore the older two-row usage-only
-screen.
-
-The Codex usage screen uses a Codex pet renderer by default. It shows the same
-large `5H` and `WK` availability badges over the pet animation, and the pet
-state follows Codex activity: idle, working, or waiting for input.
-
-```env
-CODEX_USAGE_PANEL_STYLE=pet
-CODEX_PET_NAME=cappy
-CODEX_PETS_DIR=~/.codex/pets
-CODEX_PET_PANEL_BG=#000000
-CODEX_PET_BADGE_BG=#000000
-CODEX_PET_BADGE_OUTLINE=#14532D
-CODEX_PET_FRAME_MS=180
-```
-
-Install any Codex pet locally under `~/.codex/pets/<pet-name>`, then set
-`CODEX_PET_NAME` to that folder name. Cappy example:
-
-```bash
-curl -L "https://codex-pets.net/api/pets/cappy/download?v=1777716783783" \
-  -o "/tmp/cappy.codex-pet.zip"
-mkdir -p "$HOME/.codex/pets/cappy"
-unzip -o "/tmp/cappy.codex-pet.zip" -d "$HOME/.codex/pets/cappy"
-```
-
-The renderer reads `pet.json` when present, including `spritesheetPath`. If a
-pet uses a different spritesheet layout, override the grid or frame indexes:
-
-```env
-CODEX_PET_GRID_COLUMNS=8
-CODEX_PET_GRID_ROWS=9
-CODEX_PET_CHILLING_FRAMES=0,1,2,3,4,5
-CODEX_PET_WORKING_FRAMES=56,57,58,59,60,61
-CODEX_PET_ALERTING_FRAMES=24,25,26,27
-# CODEX_PET_SPRITESHEET=~/.codex/pets/custom/spritesheet.webp
-```
-
-Set `CODEX_USAGE_PANEL_STYLE=classic` to restore the older two-row usage-only
-screen.
+- Codex usage from local `~/.codex/sessions/**/*.jsonl`.
+- Claude usage from Claude web usage endpoints via local browser/session data.
+- Codex and Claude waiting-for-input detection from local session logs.
+- Codex pet usage panel with configurable downloaded Codex pets.
+- Clauddy-style Claude usage panel.
+- Local GIF panels for OpenAI, center mascot, and status art.
+- Divoom Times Gate rendering through local HTTP commands.
+- Skips unchanged panel uploads to reduce loading flicker.
+- Divoom buzzer alerts through `Device/PlayBuzzer`.
+- Limit exhaustion/reset alerts for Codex and Claude quotas.
+- Market quotes for crypto, Stooq assets, and Argentina USD crypto quotes.
+- Resource monitor with CPU, memory, CPU temperature, and network in/out.
+- Calendar panel from one or more ICS/webcal feeds.
+- Calendar event beeps.
+- Service health panel for localhost apps, APIs, TCP ports, commands, and
+  Tailscale status.
 
 ## Quick Start
 
@@ -211,7 +78,7 @@ python3 -m venv .venv
 cp .env.example .env
 ```
 
-Edit `.env` with your local values:
+Edit `.env` with at least:
 
 ```env
 DIVOOM_IP=192.168.1.123
@@ -222,7 +89,13 @@ SCREEN_2_PANEL=center
 SCREEN_3_PANEL=calendar
 ```
 
-Then run a one-shot update:
+Ping the device:
+
+```bash
+.venv/bin/python main.py --ping
+```
+
+Run one full update:
 
 ```bash
 .venv/bin/python main.py --once --provider both --hold-secs 0
@@ -234,26 +107,31 @@ Run debug mode without sending anything to the Divoom:
 .venv/bin/python main.py --debug --provider both
 ```
 
-Ping the Times Gate:
-
-```bash
-.venv/bin/python main.py --ping
-```
-
-If every local command returns `{"error_code": "DeviceToken is err"}`, the
-Times Gate is reachable but refusing the local `/post` command channel before
-the dashboard command is processed. This can happen when the official Divoom app
-or cloud binding has taken over the device session, the device has stale auth
-state, or the IP now points at a different Divoom device. Wake/reboot the device,
-disconnect it from the phone app, confirm `DIVOOM_IP` and `DIVOOM_MAC`, then
-retry `--ping`.
-
 ## Persistent Mode On macOS
 
 Install or restart the LaunchAgent:
 
 ```bash
 scripts/install-launchagent.sh
+```
+
+The default label is:
+
+```text
+com.divoom.timesgate.aifeats
+```
+
+Manual restart:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.divoom.timesgate.aifeats
+```
+
+Use a custom label:
+
+```bash
+LAUNCHD_LABEL=your.label scripts/install-launchagent.sh
+launchctl kickstart -k gui/$(id -u)/your.label
 ```
 
 Logs:
@@ -263,18 +141,9 @@ logs/meter.log
 logs/meter.err.log
 ```
 
-Manual restart:
-
-```bash
-launchctl kickstart -k gui/$(id -u)/com.divoom.timesgate.aifeats
-```
-
-Use `LAUNCHD_LABEL=your.label scripts/install-launchagent.sh` if you want a
-custom LaunchAgent label.
-
 ## Configuration Files
 
-Use `.env.example` as the public template. Keep your real `.env` local.
+Use `.env.example` as the public template and keep your real `.env` local.
 
 Ignored local files include:
 
@@ -290,21 +159,170 @@ preview*.png
 preview*.gif
 ```
 
-Do not commit personal GIFs, cookies, Divoom tokens, Claude organization IDs, or
-private calendar URLs.
+Do not commit personal GIFs, cookies, Divoom tokens, Claude organization IDs,
+or private calendar URLs.
 
-## Claude Usage Setup
+## Refresh Behavior
+
+The app has two loops:
+
+- `REFRESH_SECONDS`: full usage and panel refresh.
+- `STATE_REFRESH_SECONDS`: short waiting-state, Codex usage watch, and calendar
+  alert checks.
+
+Recommended defaults:
+
+```env
+REFRESH_SECONDS=300
+STATE_REFRESH_SECONDS=15
+DIVOOM_SKIP_UNCHANGED_PANELS=1
+DIVOOM_IMMUTABLE_PANELS=center,gengar,mascot
+DIVOOM_MIN_PANEL_UPLOAD_SECONDS=300
+CODEX_USAGE_WATCH=1
+```
+
+Rendered panels are hashed in memory. If a panel did not change, it is not sent
+again. This avoids the Times Gate briefly returning to a loading screen just
+because the loop ran.
+
+`DIVOOM_IMMUTABLE_PANELS` sends fixed art panels once after process startup and
+then skips them completely. Use it for mascot/center screens that never change.
+
+`DIVOOM_MIN_PANEL_UPLOAD_SECONDS` throttles changed uploads per physical screen.
+Resource-heavy panels such as `ops` may still update when values change, but
+static art should remain stable.
+
+## Assistant Status
+
+Codex and Claude states map to:
+
+```text
+IDLE -> chilling
+WORK -> working
+WAIT -> alerting / waiting for operator input
+```
+
+Status is inferred from local Codex and Claude session logs. Manual overrides:
+
+```env
+CODEX_INTERACTION_STATUS=working
+CLAUDE_INTERACTION_STATUS=alerting
+INTERACTION_STATE_STALE_SECONDS=3600
+```
+
+The stale timeout prevents old session log entries from leaving panels stuck on
+`WORK`.
+
+## Codex Usage And Pets
+
+Codex usage is read locally from:
+
+```text
+~/.codex/sessions/**/*.jsonl
+~/.codex/archived_sessions/*.jsonl
+```
+
+No API key is required. The display shows **available capacity**, not used
+capacity.
+
+The Codex usage screen uses the pet renderer by default:
+
+```env
+CODEX_USAGE_PANEL_STYLE=pet
+CODEX_PET_NAME=cappy
+CODEX_PETS_DIR=~/.codex/pets
+CODEX_PET_PANEL_BG=#000000
+CODEX_PET_BADGE_BG=#000000
+CODEX_PET_BADGE_OUTLINE=#14532D
+CODEX_PET_FRAME_MS=180
+```
+
+Install Cappy:
+
+```bash
+curl -L "https://codex-pets.net/api/pets/cappy/download?v=1777716783783" \
+  -o "/tmp/cappy.codex-pet.zip"
+mkdir -p "$HOME/.codex/pets/cappy"
+unzip -o "/tmp/cappy.codex-pet.zip" -d "$HOME/.codex/pets/cappy"
+```
+
+Use another pet by downloading it into `~/.codex/pets/<pet-name>` and changing:
+
+```env
+CODEX_PET_NAME=<pet-name>
+```
+
+The renderer reads `pet.json` when present, including `spritesheetPath`. You can
+also bypass the manifest:
+
+```env
+CODEX_PET_SPRITESHEET=~/.codex/pets/custom/spritesheet.webp
+```
+
+If a pet uses a different spritesheet layout, override the grid and frame
+indexes:
+
+```env
+CODEX_PET_GRID_COLUMNS=8
+CODEX_PET_GRID_ROWS=9
+CODEX_PET_CHILLING_FRAMES=0,1,2,3,4,5
+CODEX_PET_WORKING_FRAMES=56,57,58,59,60,61
+CODEX_PET_ALERTING_FRAMES=24,25,26,27
+```
+
+Restore the older two-row Codex panel:
+
+```env
+CODEX_USAGE_PANEL_STYLE=classic
+```
+
+## Claude Usage And Clauddy
 
 Claude usage needs `CLAUDE_ORG_ID`:
 
 ```env
 CLAUDE_ORG_ID=
+CLAUDE_USAGE_CACHE_SECONDS=3600
+CLAUDE_USAGE_STALE_CACHE_SECONDS=86400
 ```
 
-Find it by opening Claude in a browser and inspecting usage API requests:
+Find the organization ID by opening Claude in a browser and inspecting usage
+API requests:
 
 ```text
 https://claude.ai/api/organizations/<CLAUDE_ORG_ID>/usage
+```
+
+The Claude usage screen uses the Clauddy renderer by default:
+
+```env
+CLAUDE_USAGE_PANEL_STYLE=clauddy
+CLAUDDY_ASSETS_DIR=local/clauddy
+CLAUDDY_PANEL_BG=#000000
+CLAUDDY_BADGE_BG=#000000
+CLAUDDY_BADGE_OUTLINE=#334155
+CLAUDDY_REPLACE_SOURCE_BG=1
+CLAUDDY_STATUS_PROVIDER=claude
+```
+
+`CLAUDDY_ASSETS_DIR` should contain:
+
+```text
+chilling.gif
+working.gif
+alerting.gif
+```
+
+Set `SCREEN_3_PANEL=clauddy` to also show a full Clauddy status panel on one of
+the ambient screens.
+
+Set `CLAUDDY_STATUS_PROVIDER=combined` if either Codex or Claude should drive
+the status face.
+
+Restore the older two-row Claude panel:
+
+```env
+CLAUDE_USAGE_PANEL_STYLE=classic
 ```
 
 Fallback manual values are supported when browser/API access is unavailable:
@@ -316,21 +334,26 @@ CLAUDE_WEEK_PCT=45
 
 Values can be `0.72`, `72`, or `72%`.
 
-## Codex Usage Setup
+## Local GIF Panels
 
-Codex usage is read from local session logs:
+These assets are intentionally local-only so the repo does not bundle licensed
+or personal art:
 
-```text
-~/.codex/sessions/**/*.jsonl
-~/.codex/archived_sessions/*.jsonl
+```env
+OPENAI_LOGO_GIF_PATH=assets/openai-logo.gif
+OPENAI_LOGO_ANIMATION=spin-on-wait
+OPENAI_LOGO_SPIN_FRAMES=24
+OPENAI_LOGO_SPIN_FRAME_MS=70
+CENTER_GIF_PATH=assets/center.gif
+STATUS_GIF_PATH=assets/status.gif
 ```
 
-No API key is required for this integration. The display shows available
-capacity, not used capacity.
+`OPENAI_LOGO_ANIMATION=spin-on-wait` keeps the OpenAI logo static unless Codex
+is waiting for input.
 
 ## OPS Panel
 
-The `ops` panel combines market quotes, resource bars, and network throughput.
+The `ops` panel combines market quotes, resources, and network throughput:
 
 ```env
 SCREEN_1_PANEL=ops
@@ -355,14 +378,14 @@ MARKET_ASSETS=SOL:crypto:solana,NVDA:stooq:nvda.us,SPY:stooq:spy.us
 MARKET_ASSETS=BTC:crypto:bitcoin,SOL:crypto:solana,USD:dolarapi:cripto
 ```
 
-`dolarapi:cripto` uses DolarAPI's Argentina Dólar Cripto quote. The panel
+`dolarapi:cripto` uses DolarAPI's Argentina Dolar Cripto quote. The panel
 renders that quote as ARS without `K` abbreviation.
 
 Resource metrics:
 
 - CPU usage
 - Memory usage
-- CPU temperature, when a supported local sensor command is available
+- CPU temperature, when a supported sensor command is available
 - Network ingress in Mbps
 - Network egress in Mbps
 
@@ -372,9 +395,8 @@ Network interfaces default to `en0,en1`. Override them with:
 NETWORK_INTERFACES=en0,utun0
 ```
 
-Resource values are bucketed before rendering, so small sampling noise does not
-trigger a Divoom panel upload. Defaults are 5 percentage points for CPU and
-memory, and 0.25 Mbps for network throughput.
+Resource values are bucketed before rendering so small sampling noise does not
+trigger a Divoom panel upload:
 
 ```env
 RESOURCE_PERCENT_BUCKET=5
@@ -393,8 +415,7 @@ CPU_TEMP_MAX_C=100
 ## Calendar Panel
 
 The `calendar` panel reads upcoming events from one or more ICS feeds. Multiple
-feeds are merged into one chronological list, so events from different accounts
-appear together on the same screen.
+feeds are merged into one chronological list.
 
 ```env
 SCREEN_3_PANEL=calendar
@@ -405,11 +426,23 @@ CALENDAR_MAX_EVENTS=3
 CALENDAR_CACHE_SECONDS=300
 CALENDAR_LOOKAHEAD_HOURS=48
 CALENDAR_EVENT_ALERT_WINDOW_SECONDS=90
+CALENDAR_EVENT_ALERT_MAX=3
 ```
 
-For a single calendar, `CALENDAR_ICS_URL=https://...` still works. For a compact
-list, `CALENDAR_ICS_URLS=url1,url2,url3` also works. `webcal://...` subscription
-links are accepted and normalized to `https://...` internally.
+Single calendar:
+
+```env
+CALENDAR_ICS_URL=https://example.com/calendar.ics
+```
+
+Compact multi-calendar form:
+
+```env
+CALENDAR_ICS_URLS=https://example.com/a.ics,https://example.com/b.ics
+```
+
+`webcal://...` subscription links are accepted and normalized to `https://...`
+internally.
 
 The panel shows today's date, the next event prominently, and up to two
 additional upcoming events. If no calendar URL is configured, it shows
@@ -429,7 +462,7 @@ event while the process is running.
 
 ## Service Health Panel
 
-The `health` panel checks services and Tailscale.
+The `health` panel checks services and Tailscale:
 
 ```env
 SCREEN_1_PANEL=health
@@ -454,8 +487,7 @@ HEALTH_CHECKS=WEB:http:http://localhost:3000,API:http:http://localhost:8787/heal
 HEALTH_CHECKS=VITE:http:http://localhost:5173,REDIS:tcp:localhost:6379,DOCKER:cmd:docker ps
 ```
 
-The bottom `TS` row reports Tailscale status and online peer count. Disable it
-with:
+The bottom `TS` row reports Tailscale status and online peer count. Disable it:
 
 ```env
 TAILSCALE_HEALTH=0
@@ -465,8 +497,8 @@ TAILSCALE_HEALTH=0
 
 Interaction alerts:
 
-- Codex: beeps when local session state transitions into `task_complete`.
-- Claude: beeps when local session state transitions into assistant `end_turn`.
+- Codex: beep when local session state transitions into `task_complete`.
+- Claude: beep when local session state transitions into assistant `end_turn`.
 
 Limit alerts:
 
@@ -528,65 +560,77 @@ Divoom buzzer test: True
 
 ## Useful Commands
 
-One-shot full update:
-
 ```bash
+# Full one-shot update
 .venv/bin/python main.py --once --provider both --hold-secs 0
-```
 
-Only Codex:
-
-```bash
+# Only Codex
 .venv/bin/python main.py --once --provider codex --hold-secs 0
-```
 
-Only Claude:
-
-```bash
+# Only Claude
 .venv/bin/python main.py --once --provider claude --hold-secs 0
-```
 
-Debug:
-
-```bash
+# Debug without sending panels
 .venv/bin/python main.py --debug --provider both
-```
 
-Fixed test display:
-
-```bash
+# Fixed test display
 .venv/bin/python main.py --test-display --provider both
-```
 
-Run tests:
+# Ping the Times Gate
+.venv/bin/python main.py --ping
 
-```bash
+# Run tests
 .venv/bin/python -m unittest discover -s tests
 ```
 
 ## Troubleshooting
 
-If screens stay loading:
+### Screens stay loading
 
-1. Run `main.py --ping`.
-2. Check `DIVOOM_IP`.
+1. Run `.venv/bin/python main.py --ping`.
+2. Confirm `DIVOOM_IP`.
 3. Set `DIVOOM_MAC` and keep `DIVOOM_AUTO_DISCOVER=1`.
-4. Check `logs/meter.err.log`.
+4. Check `logs/meter.log` and `logs/meter.err.log`.
+5. Temporarily set `DIVOOM_MIN_PANEL_UPLOAD_SECONDS=0` only while debugging.
 
-If the Divoom beep does not sound:
+### Divoom returns `DeviceToken is err`
+
+The device is reachable, but the local `/post` command channel is refusing the
+command before the dashboard command is processed. This can happen when the
+official Divoom app or cloud binding has taken over the device session, the
+device has stale auth state, or the IP points at another device.
+
+Try:
+
+1. Wake or reboot the device.
+2. Disconnect it from the phone app.
+3. Confirm `DIVOOM_IP` and `DIVOOM_MAC`.
+4. Run `.venv/bin/python main.py --ping` again.
+
+### Divoom beep does not sound
 
 1. Run the manual buzzer test above.
 2. Confirm `DIVOOM_BEEP=1`.
 3. Check for `[meter] Divoom beep OK (...)` in `logs/meter.log`.
 4. Increase `DIVOOM_BEEP_TOTAL_MS`.
 
-If Claude usage is unknown:
+### Claude usage is unknown
 
 1. Confirm `CLAUDE_ORG_ID`.
 2. Open Claude in your browser and make sure you are logged in.
-3. Use fallback env values if browser scraping/API access is not available.
+3. Use fallback env values if browser scraping/API access is unavailable.
 
-If calendar says `NO EVENTS`:
+### Codex pet does not render
+
+1. Confirm the pet exists under `CODEX_PETS_DIR/CODEX_PET_NAME`.
+2. Confirm `pet.json` has a valid `spritesheetPath`, or set
+   `CODEX_PET_SPRITESHEET` directly.
+3. If the pet appears cropped, tune `CODEX_PET_GRID_COLUMNS`,
+   `CODEX_PET_GRID_ROWS`, and the frame lists.
+4. Set `CODEX_USAGE_PANEL_STYLE=classic` to verify the rest of the Codex panel
+   path still works.
+
+### Calendar says `NO EVENTS`
 
 1. Set `CALENDAR_ICS_URL`, `CALENDAR_ICS_URLS`, or numbered URLs such as
    `CALENDAR_ICS_URL_1`.
