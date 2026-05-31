@@ -244,6 +244,13 @@ def claude_usage_panel_style() -> str:
     return "clauddy"
 
 
+def codex_usage_panel_style() -> str:
+    style = os.getenv("CODEX_USAGE_PANEL_STYLE", "pet").strip().lower()
+    if style in ("pet", "classic"):
+        return style
+    return "pet"
+
+
 def interaction_state_is_stale(state: dict, provider: str) -> bool:
     timestamp = state.get("timestamp")
     if not timestamp:
@@ -467,7 +474,7 @@ def send_limit_view(
     fallback_text: str,
 ) -> bool:
     import divoom
-    from dashboard_renderer import render_clauddy_panel, render_claude_panel, render_codex_panel
+    from dashboard_renderer import render_clauddy_panel, render_claude_panel, render_codex_panel, render_codex_pet_panel
 
     primary_pct = to_available_percent(primary_value)
     secondary_pct = to_available_percent(secondary_value)
@@ -494,16 +501,20 @@ def send_limit_view(
             gif = render_clauddy_panel(clauddy_status(), claude_usage)
         asset_name = "claude.gif"
     else:
-        gif = render_codex_panel(
-            {
-                "primary": primary_value,
-                "secondary": secondary_value,
-                "primary_reset": current_usage.get("primary_reset"),
-                "secondary_reset": current_usage.get("secondary_reset"),
-            },
-            waiting=codex_waiting_input(),
-            status=interaction_status("codex"),
-        )
+        codex_usage = {
+            "primary": primary_value,
+            "secondary": secondary_value,
+            "primary_reset": current_usage.get("primary_reset"),
+            "secondary_reset": current_usage.get("secondary_reset"),
+        }
+        if codex_usage_panel_style() == "classic":
+            gif = render_codex_panel(
+                codex_usage,
+                waiting=codex_waiting_input(),
+                status=interaction_status("codex"),
+            )
+        else:
+            gif = render_codex_pet_panel(interaction_status("codex"), codex_usage)
         asset_name = "codex.gif"
 
     divoom.set_brightness(DIVOOM_IP, 80)

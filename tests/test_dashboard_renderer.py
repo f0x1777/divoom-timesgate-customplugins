@@ -73,6 +73,23 @@ class DashboardRendererTests(unittest.TestCase):
                 source.close()
                 img.close()
 
+    def test_codex_pet_panel_renders_spritesheet_with_limit_badges(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "spritesheet.webp"
+            sheet = Image.new("RGBA", (1536, 1872), (0, 0, 0, 0))
+            for col in range(6):
+                for x in range(col * 192 + 48, col * 192 + 144):
+                    for y in range(7 * 208 + 24, 7 * 208 + 120):
+                        sheet.putpixel((x, y), (64 + col * 16, 176, 112, 255))
+            sheet.save(path, format="WEBP", lossless=True)
+
+            with patch.dict("os.environ", {"CODEX_PET_SPRITESHEET": str(path)}):
+                gif = dashboard_renderer.render_codex_pet_panel("working", {"primary": 0.08, "secondary": 0.83})
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+        self.assertEqual(self._gif_frame_count(gif), 6)
+
     def test_resource_bar_width_is_clamped(self):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)
