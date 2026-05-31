@@ -40,6 +40,7 @@ SCREEN_3_PANEL  = os.getenv("SCREEN_3_PANEL", "clawd").lower()
 CODEX_WAITING_INPUT = False
 LAST_CODEX_WAITING_INPUT: bool | None = None
 LAST_CODEX_USAGE: dict | None = None
+LAST_CODEX_DISPLAY_SIGNATURE: tuple | None = None
 CLAUDE_WAITING_INPUT = False
 LAST_CLAUDE_WAITING_INPUT: bool | None = None
 LAST_CLAUDE_USAGE: dict | None = None
@@ -56,7 +57,6 @@ LIMIT_FIELDS = {
     "claude": (
         ("session", "5h"),
         ("week", "weekly"),
-        ("design", "design"),
         ("sonnet", "sonnet"),
     ),
 }
@@ -356,11 +356,11 @@ def send_limit_view(
             {
                 "session": primary_value,
                 "week": secondary_value,
-                "design": context_value,
-                "sonnet": current_usage.get("sonnet", -1.0),
+                "design": -1.0,
+                "sonnet": context_value,
                 "session_reset": current_usage.get("session_reset"),
                 "week_reset": current_usage.get("week_reset"),
-                "design_reset": current_usage.get("design_reset"),
+                "design_reset": None,
                 "sonnet_reset": current_usage.get("sonnet_reset"),
             },
             waiting=claude_waiting_input(),
@@ -410,17 +410,17 @@ def send_claude_usage(usage: dict) -> bool:
         usage["session"],
         "week",
         usage["week"],
-        "design",
-        usage["design"],
-        f"CLAUDE S:{available_pct_str(usage['session'])} W:{available_pct_str(usage['week'])} D:{available_pct_str(usage['design'])}",
+        "sonnet",
+        usage.get("sonnet", -1.0),
+        f"CLAUDE S:{available_pct_str(usage['session'])} W:{available_pct_str(usage['week'])} Son:{available_pct_str(usage.get('sonnet', -1.0))}",
     )
 
 
 def send_codex_usage(usage: dict) -> bool:
-    global LAST_CODEX_USAGE
+    global LAST_CODEX_USAGE, LAST_CODEX_DISPLAY_SIGNATURE
     LAST_CODEX_USAGE = usage
     send_limit_view._usage = usage
-    return send_limit_view(
+    ok = send_limit_view(
         "codex",
         0,
         "primary",
@@ -431,6 +431,9 @@ def send_codex_usage(usage: dict) -> bool:
         usage["context"],
         f"CODEX P:{available_pct_str(usage['primary'])} W:{available_pct_str(usage['secondary'])} C:{available_pct_str(usage['context'])}",
     )
+    if ok:
+        LAST_CODEX_DISPLAY_SIGNATURE = codex_display_signature(usage)
+    return ok
 
 
 def send_static_panels() -> bool:
@@ -499,17 +502,17 @@ def get_claude_usage() -> dict:
     return get_usage()
 
 
-def get_codex_usage() -> dict:
+def get_codex_usage(verbose: bool = True) -> dict:
     from codex_scraper import get_usage
 
-    print("[meter] Obteniendo usage de Codex local...")
+    if verbose:
+        print("[meter] Obteniendo usage de Codex local...")
     return get_usage()
 
 
 def print_claude_usage(usage: dict):
     print(f"  CLAUDE SESSION AVAILABLE -> {available_pct_str(usage['session'])}")
     print(f"  CLAUDE WEEK AVAILABLE    -> {available_pct_str(usage['week'])}")
-    print(f"  CLAUDE DESIGN AVAILABLE  -> {available_pct_str(usage['design'])}")
     print(f"  CLAUDE SONNET AVAILABLE  -> {available_pct_str(usage.get('sonnet', -1.0))}")
 
 
@@ -517,6 +520,16 @@ def print_codex_usage(usage: dict):
     print(f"  CODEX 5H AVAILABLE   -> {available_pct_str(usage['primary'])}")
     print(f"  CODEX WEEK AVAILABLE -> {available_pct_str(usage['secondary'])}")
     print(f"  CODEX CONTEXT FREE   -> {available_pct_str(usage['context'])}")
+
+
+def codex_display_signature(usage: dict) -> tuple:
+    return (
+        to_available_percent(usage.get("primary", -1.0)),
+        to_available_percent(usage.get("secondary", -1.0)),
+        usage.get("primary_reset"),
+        usage.get("secondary_reset"),
+        codex_waiting_input(),
+    )
 
 
 def run_once(provider: str = "both", verbose: bool = True, hold_secs: float = VIEW_HOLD_SECS):
@@ -584,6 +597,27 @@ def refresh_waiting_display_if_needed() -> bool:
     return ok
 
 
+def refresh_codex_usage_display_if_needed() -> bool:
+    global LAST_CODEX_USAGE
+
+    if not env_flag("CODEX_USAGE_WATCH", True):
+        return False
+
+    usage = get_codex_usage(verbose=False)
+    if not usage_is_known(usage):
+        return False
+
+    LAST_CODEX_USAGE = usage
+    signature = codex_display_signature(usage)
+    if signature == LAST_CODEX_DISPLAY_SIGNATURE:
+        return False
+
+    print("[meter] Codex usage changed; refreshing panel")
+    ok = send_codex_usage(usage)
+    emit_limit_alerts(collect_limit_alerts("codex", usage))
+    return ok
+
+
 def sleep_with_state_watch(total_secs: int):
     deadline = time.time() + max(0, total_secs)
     while True:
@@ -593,6 +627,7 @@ def sleep_with_state_watch(total_secs: int):
         time.sleep(min(max(1, STATE_REFRESH_SECS), remaining))
         try:
             refresh_waiting_display_if_needed()
+            refresh_codex_usage_display_if_needed()
             emit_calendar_alerts(collect_calendar_event_alerts())
         except Exception as e:
             print(f"[meter] State watch error: {e}")
@@ -668,7 +703,7 @@ def main():
         print(f"[meter] Enviando prueba al Times Gate ({DIVOOM_IP})...")
         ok = True
         if args.provider in ("claude", "both"):
-            ok &= send_claude_usage({"session": 0.72, "week": 0.45, "design": 0.30})
+            ok &= send_claude_usage({"session": 0.72, "week": 0.45, "design": -1.0, "sonnet": 0.30})
         if args.provider == "both" and args.hold_secs > 0:
             time.sleep(args.hold_secs)
         if args.provider in ("codex", "both"):

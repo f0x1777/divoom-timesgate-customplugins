@@ -14,6 +14,7 @@ class UsageDisplayTests(unittest.TestCase):
         main.CODEX_WAITING_INPUT = False
         main.LAST_CODEX_WAITING_INPUT = None
         main.LAST_CODEX_USAGE = None
+        main.LAST_CODEX_DISPLAY_SIGNATURE = None
         main.CLAUDE_WAITING_INPUT = False
         main.LAST_CLAUDE_WAITING_INPUT = None
         main.LAST_CLAUDE_USAGE = None
@@ -235,6 +236,46 @@ class UsageDisplayTests(unittest.TestCase):
         send_claude_usage.assert_called_once_with(main.LAST_CLAUDE_USAGE)
         send_static_panels.assert_called_once()
         emit_pending_beeps.assert_called_once_with(False, True)
+
+    def test_codex_usage_watch_refreshes_when_displayed_usage_changes(self):
+        main.LAST_CODEX_DISPLAY_SIGNATURE = (90, 10, 1, 2, False)
+        usage = {
+            "primary": 0.08,
+            "secondary": 0.95,
+            "context": 0.3,
+            "primary_reset": 1,
+            "secondary_reset": 2,
+        }
+
+        with patch("main.get_codex_usage", return_value=usage), \
+             patch("main.send_codex_usage", return_value=True) as send_codex_usage, \
+             patch("main.emit_limit_alerts") as emit_limit_alerts, \
+             contextlib.redirect_stdout(io.StringIO()):
+            ok = main.refresh_codex_usage_display_if_needed()
+
+        self.assertTrue(ok)
+        send_codex_usage.assert_called_once_with(usage)
+        emit_limit_alerts.assert_called_once()
+
+    def test_codex_usage_watch_retries_after_failed_send(self):
+        usage = {
+            "primary": 0.08,
+            "secondary": 0.95,
+            "context": 0.3,
+            "primary_reset": 1,
+            "secondary_reset": 2,
+        }
+
+        with patch("main.get_codex_usage", return_value=usage), \
+             patch("main.send_codex_usage", return_value=False) as send_codex_usage, \
+             patch("main.emit_limit_alerts"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            first = main.refresh_codex_usage_display_if_needed()
+            second = main.refresh_codex_usage_display_if_needed()
+
+        self.assertFalse(first)
+        self.assertFalse(second)
+        self.assertEqual(send_codex_usage.call_count, 2)
 
     def test_interaction_beep_prefers_divoom_buzzer(self):
         fake_divoom = types.SimpleNamespace()

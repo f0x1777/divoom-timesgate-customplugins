@@ -157,7 +157,6 @@ def render_codex_panel(usage: dict, waiting: bool = False) -> bytes:
 def render_claude_panel(usage: dict, waiting: bool = False) -> bytes:
     session_avail = _available_from_used(usage.get("session"))
     week_avail = _available_from_used(usage.get("week"))
-    design_avail = _available_from_used(usage.get("design"))
     sonnet_avail = _available_from_used(usage.get("sonnet"))
 
     img = _base("#100B06")
@@ -165,16 +164,15 @@ def render_claude_panel(usage: dict, waiting: bool = False) -> bytes:
     rows = [
         ("5h", session_avail, usage.get("session_reset")),
         ("Wk", week_avail, usage.get("week_reset")),
-        ("Dsg", design_avail, usage.get("design_reset")),
         ("Son", sonnet_avail, usage.get("sonnet_reset")),
     ]
     for idx, (label, value, reset) in enumerate(rows):
-        y = 4 + idx * 30
+        y = 10 + idx * 40
         draw.text((5, y + 4), label, font=FONT_ROW, fill="#D3B08A")
         draw.text((36, y), _pct(value), font=FONT_MED, fill="#FFB14A")
         draw.text((80, y + 3), _reset_label(reset), font=FONT_SMALL, fill="#FFFFFF")
-        if idx < 3:
-            draw.line((5, y + 27, 122, y + 27), fill="#3D230B")
+        if idx < 2:
+            draw.line((5, y + 33, 122, y + 33), fill="#3D230B")
     if waiting:
         _draw_waiting_overlay(draw, "#FFB14A")
     return _save_gif([img])

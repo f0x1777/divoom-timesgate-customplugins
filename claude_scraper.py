@@ -61,7 +61,7 @@ def _usage_from_env() -> dict | None:
     usage = {
         "session": _parse_pct_env("CLAUDE_SESSION_PCT"),
         "week": _parse_pct_env("CLAUDE_WEEK_PCT"),
-        "design": _parse_pct_env("CLAUDE_DESIGN_PCT"),
+        "design": -1.0,
         "sonnet": _parse_pct_env("CLAUDE_SONNET_PCT"),
         "session_reset": None,
         "week_reset": None,
@@ -118,11 +118,9 @@ def _usage_from_api_data(data: dict, source: str) -> dict:
 
     usage["session"] = pct("five_hour")
     usage["week"] = pct("seven_day")
-    usage["design"] = pct("seven_day_omelette")
     usage["sonnet"] = pct("seven_day_sonnet")
     usage["session_reset"] = reset_at("five_hour")
     usage["week_reset"] = reset_at("seven_day")
-    usage["design_reset"] = reset_at("seven_day_omelette")
     usage["sonnet_reset"] = reset_at("seven_day_sonnet")
     return usage
 
@@ -301,7 +299,7 @@ def get_usage() -> dict:
     Retorna porcentajes de uso (0.0-1.0):
       session  -> ventana de 5 horas
       week     -> semanal (todos los modelos)
-      design   -> Claude Design semanal
+      sonnet   -> Sonnet semanal
     Retorna -1.0 para campos no disponibles.
     """
     env_usage = _usage_from_env()
@@ -344,10 +342,10 @@ def dump_raw_for_debug():
     usage = get_usage()
     state = get_interaction_state()
     print("\n=== Usage ===")
-    for k in ("session", "week", "design", "sonnet"):
+    for k in ("session", "week", "sonnet"):
         v = _available_from_used(usage.get(k, -1.0))
         print(f"  {k:8s}: {v:.0%} available" if v >= 0 else f"  {k:8s}: desconocido")
-    for k in ("session_reset", "week_reset", "design_reset", "sonnet_reset"):
+    for k in ("session_reset", "week_reset", "sonnet_reset"):
         if usage.get(k):
             print(f"  {k:13s}: {usage[k]}")
     if usage.get("source"):
@@ -361,4 +359,4 @@ def save_cookies_interactive():
     print("[scraper] Abriendo Claude en Chrome para que inicies sesion.")
     subprocess.run(["open", "-a", CHROME_APP, "https://claude.ai"], check=False)
     print("[scraper] Luego ejecuta: .venv/bin/python main.py --debug --provider claude")
-    print("[scraper] Alternativa: define CLAUDE_SESSION_PCT, CLAUDE_WEEK_PCT y CLAUDE_DESIGN_PCT.")
+    print("[scraper] Alternativa: define CLAUDE_SESSION_PCT, CLAUDE_WEEK_PCT y CLAUDE_SONNET_PCT.")

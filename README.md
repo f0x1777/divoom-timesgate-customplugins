@@ -41,7 +41,7 @@ The Times Gate has five useful screen slots in this app:
 | `1` | `openai` | Configurable static/ambient panel |
 | `2` | `center` | Configurable static/ambient panel |
 | `3` | `status` | Configurable static/ambient panel |
-| `4` | Claude usage | Claude 5h, weekly, design, and Sonnet availability |
+| `4` | Claude usage | Claude 5h, weekly, and Sonnet availability |
 
 Static panel slots are configured with:
 
@@ -83,11 +83,15 @@ because the loop ran.
 REFRESH_SECONDS=300
 STATE_REFRESH_SECONDS=15
 DIVOOM_SKIP_UNCHANGED_PANELS=1
+CODEX_USAGE_WATCH=1
 ```
 
 Set `DIVOOM_SKIP_UNCHANGED_PANELS=0` only when debugging a device that needs a
 forced repaint on every cycle. The cache lives in the running process, so it is
 cleared when the service restarts.
+
+`CODEX_USAGE_WATCH=1` checks local Codex usage during the short state-watch loop,
+so Codex limit changes can repaint between full dashboard refreshes.
 
 ## Quick Start
 
@@ -192,7 +196,6 @@ Fallback manual values are supported when browser/API access is unavailable:
 ```env
 CLAUDE_SESSION_PCT=72
 CLAUDE_WEEK_PCT=45
-CLAUDE_DESIGN_PCT=30
 CLAUDE_SONNET_PCT=47
 ```
 

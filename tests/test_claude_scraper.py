@@ -13,7 +13,7 @@ class ClaudeScraperTests(unittest.TestCase):
         env = {
             "CLAUDE_SESSION_PCT": "72",
             "CLAUDE_WEEK_PCT": "0.45",
-            "CLAUDE_DESIGN_PCT": "30%",
+            "CLAUDE_SONNET_PCT": "47%",
         }
 
         with patch.dict(os.environ, env, clear=False):
@@ -21,15 +21,14 @@ class ClaudeScraperTests(unittest.TestCase):
 
         self.assertEqual(usage["session"], 0.72)
         self.assertEqual(usage["week"], 0.45)
-        self.assertEqual(usage["design"], 0.30)
-        self.assertEqual(usage["sonnet"], -1.0)
+        self.assertEqual(usage["design"], -1.0)
+        self.assertEqual(usage["sonnet"], 0.47)
         self.assertEqual(usage["source"], "env")
 
     def test_usage_from_api_data(self):
         data = {
             "five_hour": {"utilization": 12.5, "resets_at": None},
             "seven_day": {"utilization": 34, "resets_at": "2026-05-28T19:00:00+00:00"},
-            "seven_day_omelette": {"utilization": 56, "resets_at": "2026-05-28T19:00:01+00:00"},
             "seven_day_sonnet": {"utilization": 47, "resets_at": "2026-05-28T19:00:02+00:00"},
         }
 
@@ -37,9 +36,10 @@ class ClaudeScraperTests(unittest.TestCase):
 
         self.assertEqual(usage["session"], 0.125)
         self.assertEqual(usage["week"], 0.34)
-        self.assertEqual(usage["design"], 0.56)
+        self.assertEqual(usage["design"], -1.0)
         self.assertEqual(usage["sonnet"], 0.47)
         self.assertEqual(usage["week_reset"], "2026-05-28T19:00:00+00:00")
+        self.assertIsNone(usage["design_reset"])
 
     def test_extract_json_from_browser_text(self):
         data = claude_scraper._extract_json('{"five_hour":{"utilization":12}}')
