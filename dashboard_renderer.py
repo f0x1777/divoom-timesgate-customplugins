@@ -156,11 +156,11 @@ def _draw_clauddy_limit_badges(draw: ImageDraw.ImageDraw, usage: dict | None):
         return
     session = _pct(_available_from_used(usage.get("session")))
     week = _pct(_available_from_used(usage.get("week")))
-    badges = [("5H", session, 4), ("WK", week, 70)]
+    badges = [("5H", session, 2), ("WK", week, 66)]
     for label, value, x in badges:
-        draw.rounded_rectangle((x, 4, x + 54, 19), radius=3, fill="#171923", outline="#4B5563")
-        draw.text((x + 4, 7), label, font=FONT_TINY, fill="#CBD5E1")
-        draw.text((x + 22, 6), value, font=FONT_SMALL, fill="#FFFFFF")
+        draw.rounded_rectangle((x, 3, x + 60, 25), radius=3, fill="#171923", outline="#4B5563")
+        draw.text((x + 4, 8), label, font=FONT_ROW, fill="#CBD5E1")
+        draw.text((x + 25, 5), value, font=FONT_MED, fill="#FFFFFF")
 
 
 def render_codex_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:

@@ -143,6 +143,16 @@ Set `CLAUDDY_STATUS_PROVIDER=combined` if you want either Codex or Claude to
 drive the face. The stale-state timeout prevents old session log entries from
 leaving the face stuck on `WORK`.
 
+The Claude usage screen uses this same Clauddy renderer by default, with larger
+`5H` and `WK` badges over the face:
+
+```env
+CLAUDE_USAGE_PANEL_STYLE=clauddy
+```
+
+Set `CLAUDE_USAGE_PANEL_STYLE=classic` to restore the older two-row usage-only
+screen.
+
 ## Quick Start
 
 ```bash

@@ -96,6 +96,25 @@ class UsageDisplayTests(unittest.TestCase):
         self.assertEqual(fake_divoom.calls[1][1][1:3], (0, "codex.gif"))
         self.assertIsInstance(fake_divoom.calls[1][1][3], bytes)
 
+    def test_claude_usage_uses_clauddy_panel_by_default(self):
+        fake_divoom = types.SimpleNamespace()
+        fake_divoom.calls = []
+        fake_divoom.set_brightness = lambda ip, level: fake_divoom.calls.append(("brightness", ip, level)) or True
+        fake_divoom.send_image_panel = (
+            lambda *args: fake_divoom.calls.append(("panels", args)) or True
+        )
+
+        usage = {"session": 0.28, "week": 0.31}
+        with patch.dict(sys.modules, {"divoom": fake_divoom}), \
+             patch("dashboard_renderer.render_clauddy_panel", return_value=b"clauddy") as render_clauddy, \
+             contextlib.redirect_stdout(io.StringIO()):
+            ok = main.send_claude_usage(usage)
+
+        self.assertTrue(ok)
+        render_clauddy.assert_called_once()
+        self.assertEqual(fake_divoom.calls[1][1][1:3], (4, "claude.gif"))
+        self.assertEqual(fake_divoom.calls[1][1][3], b"clauddy")
+
     def test_send_image_panel_if_changed_skips_identical_payload(self):
         fake_divoom = types.SimpleNamespace()
         fake_divoom.calls = []

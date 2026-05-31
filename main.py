@@ -219,6 +219,13 @@ def clauddy_status() -> str:
     return interaction_status("claude")
 
 
+def claude_usage_panel_style() -> str:
+    style = os.getenv("CLAUDE_USAGE_PANEL_STYLE", "clauddy").strip().lower()
+    if style in ("clauddy", "classic"):
+        return style
+    return "clauddy"
+
+
 def interaction_state_is_stale(state: dict, provider: str) -> bool:
     timestamp = state.get("timestamp")
     if not timestamp:
@@ -442,27 +449,31 @@ def send_limit_view(
     fallback_text: str,
 ) -> bool:
     import divoom
-    from dashboard_renderer import render_claude_panel, render_codex_panel
+    from dashboard_renderer import render_clauddy_panel, render_claude_panel, render_codex_panel
 
     primary_pct = to_available_percent(primary_value)
     secondary_pct = to_available_percent(secondary_value)
     context_pct = to_available_percent(context_value) if context_value is not None else None
     current_usage = getattr(send_limit_view, "_usage", {})
     if label == "claude":
-        gif = render_claude_panel(
-            {
-                "session": primary_value,
-                "week": secondary_value,
-                "design": -1.0,
-                "sonnet": -1.0,
-                "session_reset": current_usage.get("session_reset"),
-                "week_reset": current_usage.get("week_reset"),
-                "design_reset": None,
-                "sonnet_reset": None,
-            },
-            waiting=claude_waiting_input(),
-            status=interaction_status("claude"),
-        )
+        claude_usage = {
+            "session": primary_value,
+            "week": secondary_value,
+            "design": -1.0,
+            "sonnet": -1.0,
+            "session_reset": current_usage.get("session_reset"),
+            "week_reset": current_usage.get("week_reset"),
+            "design_reset": None,
+            "sonnet_reset": None,
+        }
+        if claude_usage_panel_style() == "classic":
+            gif = render_claude_panel(
+                claude_usage,
+                waiting=claude_waiting_input(),
+                status=interaction_status("claude"),
+            )
+        else:
+            gif = render_clauddy_panel(clauddy_status(), claude_usage)
         asset_name = "claude.gif"
     else:
         gif = render_codex_panel(
