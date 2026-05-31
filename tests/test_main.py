@@ -23,6 +23,7 @@ class UsageDisplayTests(unittest.TestCase):
         main.LAST_LIMIT_ZERO_STATE = {}
         main.LAST_CALENDAR_ALERT_KEYS = set()
         main.LAST_PANEL_DIGESTS = {}
+        main.LAST_PANEL_UPLOAD_TS = {}
         main.LAST_IMMUTABLE_PANEL_SENDS = set()
 
     def test_unknown_usage_is_not_known(self):
@@ -86,7 +87,8 @@ class UsageDisplayTests(unittest.TestCase):
         )
 
         usage = {"primary": 0.32, "secondary": 0.77, "context": 0.33}
-        with patch.dict(sys.modules, {"divoom": fake_divoom}), \
+        with patch.dict(os.environ, {"DIVOOM_MIN_PANEL_UPLOAD_SECONDS": "0"}), \
+             patch.dict(sys.modules, {"divoom": fake_divoom}), \
              contextlib.redirect_stdout(io.StringIO()):
             ok = main.send_codex_usage(usage)
 
@@ -120,7 +122,8 @@ class UsageDisplayTests(unittest.TestCase):
         fake_divoom.calls = []
         fake_divoom.send_image_panel = lambda *args: fake_divoom.calls.append(args) or True
 
-        with patch.dict(sys.modules, {"divoom": fake_divoom}), \
+        with patch.dict(os.environ, {"DIVOOM_MIN_PANEL_UPLOAD_SECONDS": "0"}), \
+             patch.dict(sys.modules, {"divoom": fake_divoom}), \
              contextlib.redirect_stdout(io.StringIO()):
             first = main.send_image_panel_if_changed(2, "center.gif", b"same-panel", "center")
             second = main.send_image_panel_if_changed(2, "center.gif", b"same-panel", "center")
@@ -130,6 +133,22 @@ class UsageDisplayTests(unittest.TestCase):
         self.assertTrue(second)
         self.assertTrue(third)
         self.assertEqual(len(fake_divoom.calls), 2)
+
+    def test_send_image_panel_if_changed_throttles_changed_payload(self):
+        fake_divoom = types.SimpleNamespace()
+        fake_divoom.calls = []
+        fake_divoom.send_image_panel = lambda *args: fake_divoom.calls.append(args) or True
+
+        with patch.dict(os.environ, {"DIVOOM_MIN_PANEL_UPLOAD_SECONDS": "300"}), \
+             patch.dict(sys.modules, {"divoom": fake_divoom}), \
+             patch("time.time", side_effect=[1000.0, 1010.0]), \
+             contextlib.redirect_stdout(io.StringIO()):
+            first = main.send_image_panel_if_changed(2, "center.gif", b"first-panel", "center")
+            second = main.send_image_panel_if_changed(2, "center.gif", b"changed-panel", "center")
+
+        self.assertTrue(first)
+        self.assertTrue(second)
+        self.assertEqual(len(fake_divoom.calls), 1)
 
     def test_send_image_panel_if_changed_does_not_cache_failed_send(self):
         fake_divoom = types.SimpleNamespace()

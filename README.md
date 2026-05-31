@@ -85,6 +85,7 @@ REFRESH_SECONDS=300
 STATE_REFRESH_SECONDS=15
 DIVOOM_SKIP_UNCHANGED_PANELS=1
 DIVOOM_IMMUTABLE_PANELS=center,gengar,mascot
+DIVOOM_MIN_PANEL_UPLOAD_SECONDS=300
 CODEX_USAGE_WATCH=1
 ```
 
@@ -95,6 +96,10 @@ cleared when the service restarts.
 Panels listed in `DIVOOM_IMMUTABLE_PANELS` are sent once after the process
 starts and then skipped completely on later refreshes. This is intended for
 fixed art panels such as a center mascot GIF.
+
+`DIVOOM_MIN_PANEL_UPLOAD_SECONDS` throttles uploads per physical screen. This
+reduces the Times Gate loading flash because the firmware briefly shows loading
+whenever it receives a new GIF-backed panel.
 
 `CODEX_USAGE_WATCH=1` checks local Codex usage during the short state-watch loop,
 so Codex limit changes can repaint between full dashboard refreshes.

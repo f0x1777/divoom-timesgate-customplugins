@@ -50,6 +50,7 @@ LAST_CLAUDE_USAGE: dict | None = None
 LAST_LIMIT_ZERO_STATE: dict[str, bool] = {}
 LAST_CALENDAR_ALERT_KEYS: set[str] = set()
 LAST_PANEL_DIGESTS: dict[int, str] = {}
+LAST_PANEL_UPLOAD_TS: dict[int, float] = {}
 LAST_IMMUTABLE_PANEL_SENDS: set[int] = set()
 
 LIMIT_FIELDS = {
@@ -157,19 +158,36 @@ def static_panel_is_immutable(panel: str) -> bool:
     return panel.lower() in immutable
 
 
+def min_panel_upload_seconds() -> int:
+    try:
+        return max(0, int(os.getenv("DIVOOM_MIN_PANEL_UPLOAD_SECONDS", "300")))
+    except ValueError:
+        return 300
+
+
 def send_image_panel_if_changed(lcd_index: int, asset_name: str, gif: bytes, reason: str = "") -> bool:
     import divoom
 
     digest = hashlib.sha256(gif).hexdigest()
+    label = reason or asset_name
     skip_unchanged = env_flag("DIVOOM_SKIP_UNCHANGED_PANELS", True)
     if skip_unchanged and LAST_PANEL_DIGESTS.get(lcd_index) == digest:
-        label = reason or asset_name
         print(f"[meter] SKIP - screen {lcd_index} unchanged ({label})")
         return True
+
+    min_interval = min_panel_upload_seconds()
+    last_upload = LAST_PANEL_UPLOAD_TS.get(lcd_index)
+    if last_upload is not None and min_interval > 0:
+        elapsed = time.time() - last_upload
+        if elapsed < min_interval:
+            remaining = int(min_interval - elapsed)
+            print(f"[meter] SKIP - screen {lcd_index} upload cooldown {remaining}s ({label})")
+            return True
 
     ok = divoom.send_image_panel(DIVOOM_IP, lcd_index, asset_name, gif)
     if ok:
         LAST_PANEL_DIGESTS[lcd_index] = digest
+        LAST_PANEL_UPLOAD_TS[lcd_index] = time.time()
     return ok
 
 
