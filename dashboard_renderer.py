@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFont, ImageSequence
+from PIL import Image, ImageColor, ImageDraw, ImageFont, ImageSequence
 
 
 W = 128
@@ -154,13 +154,29 @@ def _draw_status_badge(draw: ImageDraw.ImageDraw, status: str | None, outline: s
 def _draw_clauddy_limit_badges(draw: ImageDraw.ImageDraw, usage: dict | None):
     if not usage:
         return
+    fill = os.getenv("CLAUDDY_BADGE_BG", "#000000")
+    outline = os.getenv("CLAUDDY_BADGE_OUTLINE", "#334155")
     session = _pct(_available_from_used(usage.get("session")))
     week = _pct(_available_from_used(usage.get("week")))
     badges = [("5H", session, 2), ("WK", week, 66)]
     for label, value, x in badges:
-        draw.rounded_rectangle((x, 3, x + 60, 25), radius=3, fill="#171923", outline="#4B5563")
+        draw.rounded_rectangle((x, 3, x + 60, 25), radius=3, fill=fill, outline=outline)
         draw.text((x + 4, 8), label, font=FONT_ROW, fill="#CBD5E1")
         draw.text((x + 25, 5), value, font=FONT_MED, fill="#FFFFFF")
+
+
+def _replace_flat_background(rgba: Image.Image, target: str, tolerance: int = 6) -> Image.Image:
+    if os.getenv("CLAUDDY_REPLACE_SOURCE_BG", "1").lower() in ("0", "false", "no"):
+        return rgba
+    bg = rgba.getpixel((0, 0))[:3]
+    replacement = ImageColor.getrgb(target)
+    px = rgba.load()
+    for y in range(rgba.height):
+        for x in range(rgba.width):
+            r, g, b, a = px[x, y]
+            if a and abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) <= tolerance:
+                px[x, y] = (*replacement, a)
+    return rgba
 
 
 def render_codex_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:
@@ -343,6 +359,7 @@ def render_clawd_panel(waiting: bool = False) -> bytes:
 def render_clauddy_panel(status: str = "chilling", usage: dict | None = None) -> bytes:
     state = status if status in ("chilling", "working", "alerting") else "chilling"
     assets_dir = Path(os.getenv("CLAUDDY_ASSETS_DIR", "local/clauddy")).expanduser()
+    bg = os.getenv("CLAUDDY_PANEL_BG", "#000000")
     path = assets_dir / f"{state}.gif"
     if not path.exists():
         return render_blank_panel()
@@ -352,8 +369,9 @@ def render_clauddy_panel(status: str = "chilling", usage: dict | None = None) ->
     durations: list[int] = []
     for frame in ImageSequence.Iterator(source):
         rgba = frame.convert("RGBA")
+        rgba = _replace_flat_background(rgba, bg)
         rgba = rgba.resize((W, H), Image.Resampling.NEAREST)
-        canvas = Image.new("RGBA", (W, H), (0, 0, 0, 255))
+        canvas = Image.new("RGBA", (W, H), bg)
         canvas.alpha_composite(rgba, (0, 0))
         rendered = canvas.convert("RGB")
         _draw_clauddy_limit_badges(ImageDraw.Draw(rendered), usage)

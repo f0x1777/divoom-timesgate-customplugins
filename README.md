@@ -148,6 +148,10 @@ The Claude usage screen uses this same Clauddy renderer by default, with larger
 
 ```env
 CLAUDE_USAGE_PANEL_STYLE=clauddy
+CLAUDDY_PANEL_BG=#000000
+CLAUDDY_BADGE_BG=#000000
+CLAUDDY_BADGE_OUTLINE=#334155
+CLAUDDY_REPLACE_SOURCE_BG=1
 ```
 
 Set `CLAUDE_USAGE_PANEL_STYLE=classic` to restore the older two-row usage-only

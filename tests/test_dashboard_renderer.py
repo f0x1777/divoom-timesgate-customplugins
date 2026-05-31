@@ -54,6 +54,7 @@ class DashboardRendererTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "working.gif"
             img = Image.new("RGB", (160, 160), "#123456")
+            img.putpixel((80, 80), (255, 0, 0))
             img.save(path, format="GIF")
 
             with patch.dict("os.environ", {"CLAUDDY_ASSETS_DIR": tmp}):
@@ -61,6 +62,16 @@ class DashboardRendererTests(unittest.TestCase):
 
         self.assertIsInstance(gif, bytes)
         self.assertGreater(len(gif), 100)
+        with TemporaryDirectory() as rendered_tmp:
+            rendered = Path(rendered_tmp) / "rendered.gif"
+            rendered.write_bytes(gif)
+            source = Image.open(rendered)
+            img = source.convert("RGB")
+            try:
+                self.assertEqual(img.getpixel((127, 127)), (0, 0, 0))
+            finally:
+                source.close()
+                img.close()
 
     def test_resource_bar_width_is_clamped(self):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
