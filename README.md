@@ -132,6 +132,17 @@ The original MiniToo Clauddy artwork is `160x160`; Times Gate panels are
 rendered at `128x128`, so the app scales the original GIF frames with
 nearest-neighbor sampling and otherwise leaves the artwork untouched.
 
+By default this panel follows Claude state:
+
+```env
+CLAUDDY_STATUS_PROVIDER=claude
+INTERACTION_STATE_STALE_SECONDS=3600
+```
+
+Set `CLAUDDY_STATUS_PROVIDER=combined` if you want either Codex or Claude to
+drive the face. The stale-state timeout prevents old session log entries from
+leaving the face stuck on `WORK`.
+
 ## Quick Start
 
 ```bash

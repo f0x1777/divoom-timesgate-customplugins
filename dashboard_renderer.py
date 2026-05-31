@@ -81,7 +81,7 @@ def _save_gif(frames: list[Image.Image], duration: int = 450) -> bytes:
     return buf.getvalue()
 
 
-def _save_gif_with_durations(frames: list[Image.Image], durations: list[int]) -> bytes:
+def _save_gif_with_durations(frames: list[Image.Image], durations: list[int], disposal: int = 1) -> bytes:
     buf = BytesIO()
     frames[0].save(
         buf,
@@ -91,7 +91,7 @@ def _save_gif_with_durations(frames: list[Image.Image], durations: list[int]) ->
         duration=durations or 100,
         loop=0,
         optimize=False,
-        disposal=1,
+        disposal=disposal,
     )
     return buf.getvalue()
 
@@ -149,6 +149,18 @@ def _draw_status_badge(draw: ImageDraw.ImageDraw, status: str | None, outline: s
     label, fill = _status_label(status)
     draw.rounded_rectangle((42, 55, 86, 68), radius=3, fill="#050608", outline=outline)
     draw.text((50, 57), label, font=FONT_TINY, fill=fill)
+
+
+def _draw_clauddy_limit_badges(draw: ImageDraw.ImageDraw, usage: dict | None):
+    if not usage:
+        return
+    session = _pct(_available_from_used(usage.get("session")))
+    week = _pct(_available_from_used(usage.get("week")))
+    badges = [("5H", session, 4), ("WK", week, 70)]
+    for label, value, x in badges:
+        draw.rounded_rectangle((x, 4, x + 54, 19), radius=3, fill="#171923", outline="#4B5563")
+        draw.text((x + 4, 7), label, font=FONT_TINY, fill="#CBD5E1")
+        draw.text((x + 22, 6), value, font=FONT_SMALL, fill="#FFFFFF")
 
 
 def render_codex_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:
@@ -328,7 +340,7 @@ def render_clawd_panel(waiting: bool = False) -> bytes:
     return _save_gif_with_durations(frames, durations)
 
 
-def render_clauddy_panel(status: str = "chilling") -> bytes:
+def render_clauddy_panel(status: str = "chilling", usage: dict | None = None) -> bytes:
     state = status if status in ("chilling", "working", "alerting") else "chilling"
     assets_dir = Path(os.getenv("CLAUDDY_ASSETS_DIR", "local/clauddy")).expanduser()
     path = assets_dir / f"{state}.gif"
@@ -343,13 +355,15 @@ def render_clauddy_panel(status: str = "chilling") -> bytes:
         rgba = rgba.resize((W, H), Image.Resampling.NEAREST)
         canvas = Image.new("RGBA", (W, H), (0, 0, 0, 255))
         canvas.alpha_composite(rgba, (0, 0))
-        frames.append(canvas.convert("RGB"))
+        rendered = canvas.convert("RGB")
+        _draw_clauddy_limit_badges(ImageDraw.Draw(rendered), usage)
+        frames.append(rendered)
         durations.append(int(frame.info.get("duration", 100) or 100))
     source.close()
 
     if not frames:
         return render_blank_panel()
-    return _save_gif_with_durations(frames, durations)
+    return _save_gif_with_durations(frames, durations, disposal=2)
 
 
 def render_blank_panel() -> bytes:

@@ -10,6 +10,7 @@ Uso:
 """
 
 import argparse
+from datetime import datetime
 import hashlib
 import os
 import re
@@ -209,7 +210,42 @@ def combined_assistant_status() -> str:
     return "chilling"
 
 
-def status_from_interaction_state(state: dict) -> str:
+def clauddy_status() -> str:
+    provider = os.getenv("CLAUDDY_STATUS_PROVIDER", "claude").strip().lower()
+    if provider == "codex":
+        return interaction_status("codex")
+    if provider == "combined":
+        return combined_assistant_status()
+    return interaction_status("claude")
+
+
+def interaction_state_is_stale(state: dict, provider: str) -> bool:
+    timestamp = state.get("timestamp")
+    if not timestamp:
+        return False
+    raw_limit = os.getenv(
+        f"{provider.upper()}_INTERACTION_STATE_STALE_SECONDS",
+        os.getenv("INTERACTION_STATE_STALE_SECONDS", "3600"),
+    )
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        limit = 3600
+    if limit <= 0:
+        return False
+    try:
+        if isinstance(timestamp, (int, float)):
+            ts = float(timestamp)
+        else:
+            ts = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return False
+    return time.time() - ts > limit
+
+
+def status_from_interaction_state(state: dict, provider: str = "") -> str:
+    if provider and interaction_state_is_stale(state, provider):
+        return "chilling"
     if state.get("waiting_input"):
         return "alerting"
     raw_state = str(state.get("state") or "").lower()
@@ -352,7 +388,7 @@ def refresh_codex_interaction_state(beep: bool = True) -> bool:
 
     state = get_interaction_state()
     waiting = bool(state.get("waiting_input"))
-    status = status_from_interaction_state(state)
+    status = status_from_interaction_state(state, "codex")
     changed = (
         LAST_CODEX_WAITING_INPUT is not None
         and (waiting != LAST_CODEX_WAITING_INPUT or status != CODEX_INTERACTION_STATUS)
@@ -379,7 +415,7 @@ def refresh_claude_interaction_state(beep: bool = True) -> bool:
 
     state = get_interaction_state()
     waiting = bool(state.get("waiting_input"))
-    status = status_from_interaction_state(state)
+    status = status_from_interaction_state(state, "claude")
     changed = (
         LAST_CLAUDE_WAITING_INPUT is not None
         and (waiting != LAST_CLAUDE_WAITING_INPUT or status != CLAUDE_INTERACTION_STATUS)
@@ -527,7 +563,7 @@ def render_static_panel(panel: str) -> bytes:
     if panel == "calendar":
         return render_calendar_center_panel()
     if panel == "clauddy":
-        return render_clauddy_panel(combined_assistant_status())
+        return render_clauddy_panel(clauddy_status(), LAST_CLAUDE_USAGE)
     if panel in ("status", "assistant", "clawd"):
         return render_clawd_panel(claude_waiting_input())
     if panel in ("center", "mascot", "gengar"):

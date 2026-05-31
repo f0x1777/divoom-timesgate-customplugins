@@ -195,6 +195,8 @@ class UsageDisplayTests(unittest.TestCase):
         self.assertEqual(len(fake_divoom.calls), 2)
 
     def test_static_panel_supports_generic_aliases(self):
+        main.LAST_CLAUDE_USAGE = {"session": 0.2, "week": 0.4}
+
         with patch("dashboard_renderer.render_gengar_panel", return_value=b"center") as render_center, \
              patch("dashboard_renderer.render_clauddy_panel", return_value=b"clauddy") as render_clauddy, \
              patch("dashboard_renderer.render_clawd_panel", return_value=b"status") as render_status:
@@ -203,7 +205,7 @@ class UsageDisplayTests(unittest.TestCase):
             self.assertEqual(main.render_static_panel("status"), b"status")
 
         render_center.assert_called_once()
-        render_clauddy.assert_called_once_with("chilling")
+        render_clauddy.assert_called_once_with("chilling", main.LAST_CLAUDE_USAGE)
         render_status.assert_called_once()
 
     def test_codex_waiting_transition_beeps_once(self):
@@ -232,6 +234,14 @@ class UsageDisplayTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertFalse(main.CODEX_WAITING_INPUT)
         self.assertEqual(main.CODEX_INTERACTION_STATUS, "working")
+
+    def test_stale_interaction_state_maps_to_chilling(self):
+        state = {"waiting_input": False, "state": "active", "timestamp": "2026-05-27T02:29:36.362Z"}
+
+        with patch.dict(os.environ, {"INTERACTION_STATE_STALE_SECONDS": "3600"}):
+            status = main.status_from_interaction_state(state, "claude")
+
+        self.assertEqual(status, "chilling")
 
     def test_waiting_display_refreshes_on_state_change(self):
         main.CODEX_WAITING_INPUT = True

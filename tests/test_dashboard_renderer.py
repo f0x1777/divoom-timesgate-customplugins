@@ -57,7 +57,7 @@ class DashboardRendererTests(unittest.TestCase):
             img.save(path, format="GIF")
 
             with patch.dict("os.environ", {"CLAUDDY_ASSETS_DIR": tmp}):
-                gif = dashboard_renderer.render_clauddy_panel("working")
+                gif = dashboard_renderer.render_clauddy_panel("working", {"session": 0.28, "week": 0.55})
 
         self.assertIsInstance(gif, bytes)
         self.assertGreater(len(gif), 100)
