@@ -50,6 +50,18 @@ class DashboardRendererTests(unittest.TestCase):
 
         self.assertNotEqual(idle, working)
 
+    def test_clauddy_panel_scales_source_gif(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "working.gif"
+            img = Image.new("RGB", (160, 160), "#123456")
+            img.save(path, format="GIF")
+
+            with patch.dict("os.environ", {"CLAUDDY_ASSETS_DIR": tmp}):
+                gif = dashboard_renderer.render_clauddy_panel("working")
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+
     def test_resource_bar_width_is_clamped(self):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)

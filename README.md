@@ -59,6 +59,7 @@ ops
 center
 calendar
 status
+clauddy
 health
 blank
 ```
@@ -117,6 +118,19 @@ temporarily with:
 CODEX_INTERACTION_STATUS=working
 CLAUDE_INTERACTION_STATUS=alerting
 ```
+
+Set `SCREEN_3_PANEL=clauddy` to show the full Clauddy-style face panel. The
+source assets are expected at `CLAUDDY_ASSETS_DIR` with these filenames:
+
+```text
+chilling.gif
+working.gif
+alerting.gif
+```
+
+The original MiniToo Clauddy artwork is `160x160`; Times Gate panels are
+rendered at `128x128`, so the app scales the original GIF frames with
+nearest-neighbor sampling and otherwise leaves the artwork untouched.
 
 ## Quick Start
 

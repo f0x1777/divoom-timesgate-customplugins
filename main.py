@@ -200,6 +200,15 @@ def interaction_status(provider: str) -> str:
     return CLAUDE_INTERACTION_STATUS
 
 
+def combined_assistant_status() -> str:
+    states = (interaction_status("codex"), interaction_status("claude"))
+    if "alerting" in states:
+        return "alerting"
+    if "working" in states:
+        return "working"
+    return "chilling"
+
+
 def status_from_interaction_state(state: dict) -> str:
     if state.get("waiting_input"):
         return "alerting"
@@ -502,6 +511,7 @@ def render_static_panel(panel: str) -> bytes:
     from dashboard_renderer import (
         render_blank_panel,
         render_calendar_panel,
+        render_clauddy_panel,
         render_clawd_panel,
         render_gengar_panel,
         render_openai_logo_panel,
@@ -516,6 +526,8 @@ def render_static_panel(panel: str) -> bytes:
         return render_health_center_panel()
     if panel == "calendar":
         return render_calendar_center_panel()
+    if panel == "clauddy":
+        return render_clauddy_panel(combined_assistant_status())
     if panel in ("status", "assistant", "clawd"):
         return render_clawd_panel(claude_waiting_input())
     if panel in ("center", "mascot", "gengar"):

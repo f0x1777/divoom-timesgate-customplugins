@@ -328,6 +328,30 @@ def render_clawd_panel(waiting: bool = False) -> bytes:
     return _save_gif_with_durations(frames, durations)
 
 
+def render_clauddy_panel(status: str = "chilling") -> bytes:
+    state = status if status in ("chilling", "working", "alerting") else "chilling"
+    assets_dir = Path(os.getenv("CLAUDDY_ASSETS_DIR", "local/clauddy")).expanduser()
+    path = assets_dir / f"{state}.gif"
+    if not path.exists():
+        return render_blank_panel()
+
+    source = Image.open(path)
+    frames: list[Image.Image] = []
+    durations: list[int] = []
+    for frame in ImageSequence.Iterator(source):
+        rgba = frame.convert("RGBA")
+        rgba = rgba.resize((W, H), Image.Resampling.NEAREST)
+        canvas = Image.new("RGBA", (W, H), (0, 0, 0, 255))
+        canvas.alpha_composite(rgba, (0, 0))
+        frames.append(canvas.convert("RGB"))
+        durations.append(int(frame.info.get("duration", 100) or 100))
+    source.close()
+
+    if not frames:
+        return render_blank_panel()
+    return _save_gif_with_durations(frames, durations)
+
+
 def render_blank_panel() -> bytes:
     return _save_gif([_base("#000000")])
 

@@ -196,11 +196,14 @@ class UsageDisplayTests(unittest.TestCase):
 
     def test_static_panel_supports_generic_aliases(self):
         with patch("dashboard_renderer.render_gengar_panel", return_value=b"center") as render_center, \
+             patch("dashboard_renderer.render_clauddy_panel", return_value=b"clauddy") as render_clauddy, \
              patch("dashboard_renderer.render_clawd_panel", return_value=b"status") as render_status:
             self.assertEqual(main.render_static_panel("center"), b"center")
+            self.assertEqual(main.render_static_panel("clauddy"), b"clauddy")
             self.assertEqual(main.render_static_panel("status"), b"status")
 
         render_center.assert_called_once()
+        render_clauddy.assert_called_once_with("chilling")
         render_status.assert_called_once()
 
     def test_codex_waiting_transition_beeps_once(self):
