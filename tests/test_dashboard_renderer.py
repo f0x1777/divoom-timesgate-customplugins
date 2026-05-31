@@ -42,6 +42,14 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertEqual(self._gif_frame_count(claude), 1)
         self.assertNotEqual(normal, codex)
 
+    def test_usage_panel_status_badge_changes_render(self):
+        usage = {"primary": 0.1, "secondary": 0.2}
+
+        idle = dashboard_renderer.render_codex_panel(usage, status="chilling")
+        working = dashboard_renderer.render_codex_panel(usage, status="working")
+
+        self.assertNotEqual(idle, working)
+
     def test_resource_bar_width_is_clamped(self):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)

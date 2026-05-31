@@ -136,9 +136,25 @@ def _draw_waiting_overlay(draw: ImageDraw.ImageDraw, color: str):
     draw.text((54, 32), "!", font=_font(58, True), fill=color)
 
 
-def render_codex_panel(usage: dict, waiting: bool = False) -> bytes:
+def _status_label(status: str | None) -> tuple[str, str]:
+    normalized = (status or "chilling").lower()
+    if normalized == "alerting":
+        return "WAIT", "#FACC15"
+    if normalized == "working":
+        return "WORK", "#38BDF8"
+    return "IDLE", "#94A3B8"
+
+
+def _draw_status_badge(draw: ImageDraw.ImageDraw, status: str | None, outline: str):
+    label, fill = _status_label(status)
+    draw.rounded_rectangle((42, 55, 86, 68), radius=3, fill="#050608", outline=outline)
+    draw.text((50, 57), label, font=FONT_TINY, fill=fill)
+
+
+def render_codex_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:
     primary_avail = _available_from_used(usage.get("primary"))
     secondary_avail = _available_from_used(usage.get("secondary"))
+    status = status or ("alerting" if waiting else "chilling")
 
     img = _base("#06100D")
     draw = ImageDraw.Draw(img)
@@ -149,14 +165,16 @@ def render_codex_panel(usage: dict, waiting: bool = False) -> bytes:
     draw.text((7, 70), "WK", font=FONT_MED, fill="#A9B8B0")
     draw.text((49, 67), _pct(secondary_avail), font=FONT_BIG, fill="#19C37D")
     draw.text((49, 93), _reset_label(usage.get("secondary_reset")), font=FONT_MED, fill="#FFFFFF")
+    _draw_status_badge(draw, status, "#17382A")
     if waiting:
         _draw_waiting_overlay(draw, "#19C37D")
     return _save_gif([img])
 
 
-def render_claude_panel(usage: dict, waiting: bool = False) -> bytes:
+def render_claude_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:
     session_avail = _available_from_used(usage.get("session"))
     week_avail = _available_from_used(usage.get("week"))
+    status = status or ("alerting" if waiting else "chilling")
 
     img = _base("#100B06")
     draw = ImageDraw.Draw(img)
@@ -167,6 +185,7 @@ def render_claude_panel(usage: dict, waiting: bool = False) -> bytes:
     draw.text((7, 70), "WK", font=FONT_MED, fill="#D3B08A")
     draw.text((49, 67), _pct(week_avail), font=FONT_BIG, fill="#FFB14A")
     draw.text((49, 93), _reset_label(usage.get("week_reset")), font=FONT_MED, fill="#FFFFFF")
+    _draw_status_badge(draw, status, "#3D230B")
     if waiting:
         _draw_waiting_overlay(draw, "#FFB14A")
     return _save_gif([img])

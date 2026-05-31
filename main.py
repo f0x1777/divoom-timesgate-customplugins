@@ -38,10 +38,12 @@ SCREEN_2_PANEL  = os.getenv("SCREEN_2_PANEL", CENTER_PANEL if CENTER_PANEL in ("
 SCREEN_3_PANEL  = os.getenv("SCREEN_3_PANEL", "clawd").lower()
 
 CODEX_WAITING_INPUT = False
+CODEX_INTERACTION_STATUS = "chilling"
 LAST_CODEX_WAITING_INPUT: bool | None = None
 LAST_CODEX_USAGE: dict | None = None
 LAST_CODEX_DISPLAY_SIGNATURE: tuple | None = None
 CLAUDE_WAITING_INPUT = False
+CLAUDE_INTERACTION_STATUS = "chilling"
 LAST_CLAUDE_WAITING_INPUT: bool | None = None
 LAST_CLAUDE_USAGE: dict | None = None
 LAST_LIMIT_ZERO_STATE: dict[str, bool] = {}
@@ -189,6 +191,24 @@ def claude_waiting_input() -> bool:
     return env_flag("CLAUDE_WAITING_INPUT") or CLAUDE_WAITING_INPUT
 
 
+def interaction_status(provider: str) -> str:
+    override = os.getenv(f"{provider.upper()}_INTERACTION_STATUS", "").strip().lower()
+    if override in ("chilling", "working", "alerting"):
+        return override
+    if provider == "codex":
+        return CODEX_INTERACTION_STATUS
+    return CLAUDE_INTERACTION_STATUS
+
+
+def status_from_interaction_state(state: dict) -> str:
+    if state.get("waiting_input"):
+        return "alerting"
+    raw_state = str(state.get("state") or "").lower()
+    if raw_state in ("active", "active_tool_result", "task_started", "tool_use", "working"):
+        return "working"
+    return "chilling"
+
+
 def beep_for_interaction(provider: str = "CODEX"):
     provider = provider.upper()
     if not env_flag(f"BEEP_ON_{provider}_WAITING", env_flag("BEEP_ON_WAITING", True)):
@@ -312,43 +332,55 @@ def collect_limit_alerts(provider: str, usage: dict) -> list[tuple[str, str, str
 
 
 def refresh_codex_interaction_state(beep: bool = True) -> bool:
-    global CODEX_WAITING_INPUT, LAST_CODEX_WAITING_INPUT
+    global CODEX_WAITING_INPUT, CODEX_INTERACTION_STATUS, LAST_CODEX_WAITING_INPUT
 
     if not env_flag("CODEX_WAITING_AUTO", True):
         CODEX_WAITING_INPUT = env_flag("CODEX_WAITING_INPUT")
+        CODEX_INTERACTION_STATUS = "alerting" if CODEX_WAITING_INPUT else "chilling"
         return False
 
     from codex_scraper import get_interaction_state
 
     state = get_interaction_state()
     waiting = bool(state.get("waiting_input"))
-    changed = LAST_CODEX_WAITING_INPUT is not None and waiting != LAST_CODEX_WAITING_INPUT
+    status = status_from_interaction_state(state)
+    changed = (
+        LAST_CODEX_WAITING_INPUT is not None
+        and (waiting != LAST_CODEX_WAITING_INPUT or status != CODEX_INTERACTION_STATUS)
+    )
     if changed:
-        print(f"[meter] Codex state -> {state.get('state')}")
+        print(f"[meter] Codex state -> {status} ({state.get('state')})")
     if changed and waiting and beep:
         beep_for_interaction()
     CODEX_WAITING_INPUT = waiting
+    CODEX_INTERACTION_STATUS = status
     LAST_CODEX_WAITING_INPUT = waiting
     return changed
 
 
 def refresh_claude_interaction_state(beep: bool = True) -> bool:
-    global CLAUDE_WAITING_INPUT, LAST_CLAUDE_WAITING_INPUT
+    global CLAUDE_WAITING_INPUT, CLAUDE_INTERACTION_STATUS, LAST_CLAUDE_WAITING_INPUT
 
     if not env_flag("CLAUDE_WAITING_AUTO", True):
         CLAUDE_WAITING_INPUT = env_flag("CLAUDE_WAITING_INPUT")
+        CLAUDE_INTERACTION_STATUS = "alerting" if CLAUDE_WAITING_INPUT else "chilling"
         return False
 
     from claude_scraper import get_interaction_state
 
     state = get_interaction_state()
     waiting = bool(state.get("waiting_input"))
-    changed = LAST_CLAUDE_WAITING_INPUT is not None and waiting != LAST_CLAUDE_WAITING_INPUT
+    status = status_from_interaction_state(state)
+    changed = (
+        LAST_CLAUDE_WAITING_INPUT is not None
+        and (waiting != LAST_CLAUDE_WAITING_INPUT or status != CLAUDE_INTERACTION_STATUS)
+    )
     if changed:
-        print(f"[meter] Claude state -> {state.get('state')}")
+        print(f"[meter] Claude state -> {status} ({state.get('state')})")
     if changed and waiting and beep:
         beep_for_interaction("CLAUDE")
     CLAUDE_WAITING_INPUT = waiting
+    CLAUDE_INTERACTION_STATUS = status
     LAST_CLAUDE_WAITING_INPUT = waiting
     return changed
 
@@ -384,6 +416,7 @@ def send_limit_view(
                 "sonnet_reset": None,
             },
             waiting=claude_waiting_input(),
+            status=interaction_status("claude"),
         )
         asset_name = "claude.gif"
     else:
@@ -395,6 +428,7 @@ def send_limit_view(
                 "secondary_reset": current_usage.get("secondary_reset"),
             },
             waiting=codex_waiting_input(),
+            status=interaction_status("codex"),
         )
         asset_name = "codex.gif"
 
@@ -547,6 +581,7 @@ def codex_display_signature(usage: dict) -> tuple:
         usage.get("primary_reset"),
         usage.get("secondary_reset"),
         codex_waiting_input(),
+        interaction_status("codex"),
     )
 
 

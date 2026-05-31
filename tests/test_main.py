@@ -12,10 +12,12 @@ import main
 class UsageDisplayTests(unittest.TestCase):
     def setUp(self):
         main.CODEX_WAITING_INPUT = False
+        main.CODEX_INTERACTION_STATUS = "chilling"
         main.LAST_CODEX_WAITING_INPUT = None
         main.LAST_CODEX_USAGE = None
         main.LAST_CODEX_DISPLAY_SIGNATURE = None
         main.CLAUDE_WAITING_INPUT = False
+        main.CLAUDE_INTERACTION_STATUS = "chilling"
         main.LAST_CLAUDE_WAITING_INPUT = None
         main.LAST_CLAUDE_USAGE = None
         main.LAST_LIMIT_ZERO_STATE = {}
@@ -213,7 +215,20 @@ class UsageDisplayTests(unittest.TestCase):
 
         self.assertTrue(changed)
         self.assertTrue(main.CODEX_WAITING_INPUT)
+        self.assertEqual(main.CODEX_INTERACTION_STATUS, "alerting")
         beep_for_interaction.assert_called_once()
+
+    def test_interaction_status_maps_active_to_working(self):
+        main.LAST_CODEX_WAITING_INPUT = False
+
+        with patch.dict(os.environ, {"CODEX_WAITING_AUTO": "1"}), \
+             patch("codex_scraper.get_interaction_state", return_value={"waiting_input": False, "state": "active"}), \
+             contextlib.redirect_stdout(io.StringIO()):
+            changed = main.refresh_codex_interaction_state(beep=False)
+
+        self.assertTrue(changed)
+        self.assertFalse(main.CODEX_WAITING_INPUT)
+        self.assertEqual(main.CODEX_INTERACTION_STATUS, "working")
 
     def test_waiting_display_refreshes_on_state_change(self):
         main.CODEX_WAITING_INPUT = True
@@ -260,6 +275,7 @@ class UsageDisplayTests(unittest.TestCase):
 
         self.assertTrue(changed)
         self.assertTrue(main.CLAUDE_WAITING_INPUT)
+        self.assertEqual(main.CLAUDE_INTERACTION_STATUS, "alerting")
         beep_for_interaction.assert_called_once_with("CLAUDE")
 
     def test_claude_waiting_display_refreshes_on_state_change(self):

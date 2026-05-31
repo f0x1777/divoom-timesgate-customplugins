@@ -98,6 +98,26 @@ fixed art panels such as a center mascot GIF.
 `CODEX_USAGE_WATCH=1` checks local Codex usage during the short state-watch loop,
 so Codex limit changes can repaint between full dashboard refreshes.
 
+## Assistant Status
+
+The Codex and Claude usage panels include a compact status badge inspired by
+the `chilling` / `working` / `alerting` model used by
+`bugzmanov/divoom-minitoo/apps/clauddy`.
+
+```text
+IDLE -> chilling
+WORK -> working
+WAIT -> alerting / waiting for operator input
+```
+
+Status is inferred from local Codex and Claude session logs. You can override it
+temporarily with:
+
+```env
+CODEX_INTERACTION_STATUS=working
+CLAUDE_INTERACTION_STATUS=alerting
+```
+
 ## Quick Start
 
 ```bash
@@ -136,6 +156,14 @@ Ping the Times Gate:
 ```bash
 .venv/bin/python main.py --ping
 ```
+
+If every local command returns `{"error_code": "DeviceToken is err"}`, the
+Times Gate is reachable but refusing the local `/post` command channel before
+the dashboard command is processed. This can happen when the official Divoom app
+or cloud binding has taken over the device session, the device has stale auth
+state, or the IP now points at a different Divoom device. Wake/reboot the device,
+disconnect it from the phone app, confirm `DIVOOM_IP` and `DIVOOM_MAC`, then
+retry `--ping`.
 
 ## Persistent Mode On macOS
 
