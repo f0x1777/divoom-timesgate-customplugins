@@ -154,11 +154,23 @@ def _draw_status_badge(draw: ImageDraw.ImageDraw, status: str | None, outline: s
 def _draw_clauddy_limit_badges(draw: ImageDraw.ImageDraw, usage: dict | None):
     if not usage:
         return
-    fill = os.getenv("CLAUDDY_BADGE_BG", "#000000")
-    outline = os.getenv("CLAUDDY_BADGE_OUTLINE", "#334155")
     session = _pct(_available_from_used(usage.get("session")))
     week = _pct(_available_from_used(usage.get("week")))
-    badges = [("5H", session, 2), ("WK", week, 66)]
+    _draw_limit_badges(draw, session, week, "CLAUDDY")
+
+
+def _draw_codex_limit_badges(draw: ImageDraw.ImageDraw, usage: dict | None):
+    if not usage:
+        return
+    primary = _pct(_available_from_used(usage.get("primary")))
+    secondary = _pct(_available_from_used(usage.get("secondary")))
+    _draw_limit_badges(draw, primary, secondary, "CODEX_PET")
+
+
+def _draw_limit_badges(draw: ImageDraw.ImageDraw, first: str, second: str, env_prefix: str):
+    fill = os.getenv(f"{env_prefix}_BADGE_BG", "#000000")
+    outline = os.getenv(f"{env_prefix}_BADGE_OUTLINE", "#334155")
+    badges = [("5H", first, 2), ("WK", second, 66)]
     for label, value, x in badges:
         draw.rounded_rectangle((x, 3, x + 60, 25), radius=3, fill=fill, outline=outline)
         draw.text((x + 4, 8), label, font=FONT_ROW, fill="#CBD5E1")
@@ -197,6 +209,67 @@ def render_codex_panel(usage: dict, waiting: bool = False, status: str | None = 
     if waiting:
         _draw_waiting_overlay(draw, "#19C37D")
     return _save_gif([img])
+
+
+def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) -> bytes:
+    spritesheet_path = Path(
+        os.getenv("CODEX_PET_SPRITESHEET", "~/.codex/pets/cappy/spritesheet.webp")
+    ).expanduser()
+    if not spritesheet_path.exists():
+        return render_codex_panel(usage or {}, status=status)
+
+    state = status if status in ("chilling", "working", "alerting") else "chilling"
+    frame_indexes = {
+        "chilling": [0, 1, 2, 3, 4, 5],
+        "working": [56, 57, 58, 59, 60, 61],
+        "alerting": [24, 25, 26, 27],
+    }[state]
+    bg = os.getenv("CODEX_PET_PANEL_BG", "#000000")
+    try:
+        frame_ms = int(os.getenv("CODEX_PET_FRAME_MS", "180"))
+    except ValueError:
+        frame_ms = 180
+
+    try:
+        source = Image.open(spritesheet_path).convert("RGBA")
+    except Exception:
+        return render_codex_panel(usage or {}, status=status)
+
+    cell_w, cell_h = _codex_pet_cell_size(source)
+    frames: list[Image.Image] = []
+    durations: list[int] = []
+    for idx in frame_indexes:
+        col = idx % 8
+        row = idx // 8
+        x = col * cell_w
+        y = row * cell_h
+        if x + cell_w > source.width or y + cell_h > source.height:
+            continue
+        sprite = source.crop((x, y, x + cell_w, y + cell_h))
+        bbox = sprite.getchannel("A").getbbox()
+        if bbox:
+            sprite = sprite.crop(bbox)
+        sprite.thumbnail((120, 96), Image.Resampling.NEAREST)
+
+        canvas = Image.new("RGBA", (W, H), bg)
+        px = (W - sprite.width) // 2
+        py = 29 + (96 - sprite.height) // 2
+        if state == "alerting" and len(frames) % 2:
+            py -= 2
+        canvas.alpha_composite(sprite, (px, py))
+        rendered = canvas.convert("RGB")
+        _draw_codex_limit_badges(ImageDraw.Draw(rendered), usage)
+        frames.append(rendered)
+        durations.append(frame_ms)
+    source.close()
+
+    if not frames:
+        return render_codex_panel(usage or {}, status=status)
+    return _save_gif_with_durations(frames, durations, disposal=2)
+
+
+def _codex_pet_cell_size(source: Image.Image) -> tuple[int, int]:
+    return source.width // 8, source.height // 9
 
 
 def render_claude_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:

@@ -162,6 +162,31 @@ CLAUDDY_REPLACE_SOURCE_BG=1
 Set `CLAUDE_USAGE_PANEL_STYLE=classic` to restore the older two-row usage-only
 screen.
 
+The Codex usage screen uses a Codex pet renderer by default. It shows the same
+large `5H` and `WK` availability badges over the pet animation, and the pet
+state follows Codex activity: idle, working, or waiting for input.
+
+```env
+CODEX_USAGE_PANEL_STYLE=pet
+CODEX_PET_SPRITESHEET=~/.codex/pets/cappy/spritesheet.webp
+CODEX_PET_PANEL_BG=#000000
+CODEX_PET_BADGE_BG=#000000
+CODEX_PET_BADGE_OUTLINE=#14532D
+CODEX_PET_FRAME_MS=180
+```
+
+Install the default Cappy asset locally:
+
+```bash
+curl -L "https://codex-pets.net/api/pets/cappy/download?v=1777716783783" \
+  -o "/tmp/cappy.codex-pet.zip"
+mkdir -p "$HOME/.codex/pets/cappy"
+unzip -o "/tmp/cappy.codex-pet.zip" -d "$HOME/.codex/pets/cappy"
+```
+
+Set `CODEX_USAGE_PANEL_STYLE=classic` to restore the older two-row usage-only
+screen.
+
 ## Quick Start
 
 ```bash

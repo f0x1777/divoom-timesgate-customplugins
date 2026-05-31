@@ -98,6 +98,26 @@ class UsageDisplayTests(unittest.TestCase):
         self.assertEqual(fake_divoom.calls[1][1][1:3], (0, "codex.gif"))
         self.assertIsInstance(fake_divoom.calls[1][1][3], bytes)
 
+    def test_codex_usage_uses_pet_panel_by_default(self):
+        fake_divoom = types.SimpleNamespace()
+        fake_divoom.calls = []
+        fake_divoom.set_brightness = lambda ip, level: fake_divoom.calls.append(("brightness", ip, level)) or True
+        fake_divoom.send_image_panel = (
+            lambda *args: fake_divoom.calls.append(("panels", args)) or True
+        )
+
+        usage = {"primary": 0.32, "secondary": 0.77, "context": 0.33}
+        with patch.dict(os.environ, {"DIVOOM_MIN_PANEL_UPLOAD_SECONDS": "0", "CODEX_USAGE_PANEL_STYLE": "pet"}), \
+             patch.dict(sys.modules, {"divoom": fake_divoom}), \
+             patch("dashboard_renderer.render_codex_pet_panel", return_value=b"cappy") as render_cappy, \
+             contextlib.redirect_stdout(io.StringIO()):
+            ok = main.send_codex_usage(usage)
+
+        self.assertTrue(ok)
+        render_cappy.assert_called_once()
+        self.assertEqual(fake_divoom.calls[1][1][1:3], (0, "codex.gif"))
+        self.assertEqual(fake_divoom.calls[1][1][3], b"cappy")
+
     def test_claude_usage_uses_clauddy_panel_by_default(self):
         fake_divoom = types.SimpleNamespace()
         fake_divoom.calls = []
