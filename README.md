@@ -83,12 +83,17 @@ because the loop ran.
 REFRESH_SECONDS=300
 STATE_REFRESH_SECONDS=15
 DIVOOM_SKIP_UNCHANGED_PANELS=1
+DIVOOM_IMMUTABLE_PANELS=center,gengar,mascot
 CODEX_USAGE_WATCH=1
 ```
 
 Set `DIVOOM_SKIP_UNCHANGED_PANELS=0` only when debugging a device that needs a
 forced repaint on every cycle. The cache lives in the running process, so it is
 cleared when the service restarts.
+
+Panels listed in `DIVOOM_IMMUTABLE_PANELS` are sent once after the process
+starts and then skipped completely on later refreshes. This is intended for
+fixed art panels such as a center mascot GIF.
 
 `CODEX_USAGE_WATCH=1` checks local Codex usage during the short state-watch loop,
 so Codex limit changes can repaint between full dashboard refreshes.

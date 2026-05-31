@@ -47,6 +47,7 @@ LAST_CLAUDE_USAGE: dict | None = None
 LAST_LIMIT_ZERO_STATE: dict[str, bool] = {}
 LAST_CALENDAR_ALERT_KEYS: set[str] = set()
 LAST_PANEL_DIGESTS: dict[int, str] = {}
+LAST_IMMUTABLE_PANEL_SENDS: set[int] = set()
 
 LIMIT_FIELDS = {
     "codex": (
@@ -143,6 +144,16 @@ def env_flag(name: str, default: bool = False) -> bool:
     return raw.lower() in ("1", "true", "yes", "on")
 
 
+def env_csv(name: str, default: str = "") -> set[str]:
+    raw = os.getenv(name, default)
+    return {part.strip().lower() for part in raw.split(",") if part.strip()}
+
+
+def static_panel_is_immutable(panel: str) -> bool:
+    immutable = env_csv("DIVOOM_IMMUTABLE_PANELS", "center,gengar,mascot")
+    return panel.lower() in immutable
+
+
 def send_image_panel_if_changed(lcd_index: int, asset_name: str, gif: bytes, reason: str = "") -> bool:
     import divoom
 
@@ -156,6 +167,17 @@ def send_image_panel_if_changed(lcd_index: int, asset_name: str, gif: bytes, rea
     ok = divoom.send_image_panel(DIVOOM_IP, lcd_index, asset_name, gif)
     if ok:
         LAST_PANEL_DIGESTS[lcd_index] = digest
+    return ok
+
+
+def send_static_panel(lcd_index: int, panel: str) -> bool:
+    if static_panel_is_immutable(panel) and lcd_index in LAST_IMMUTABLE_PANEL_SENDS:
+        print(f"[meter] SKIP - screen {lcd_index} immutable ({panel})")
+        return True
+
+    ok = send_image_panel_if_changed(lcd_index, f"{panel}.gif", render_static_panel(panel), panel)
+    if ok and static_panel_is_immutable(panel):
+        LAST_IMMUTABLE_PANEL_SENDS.add(lcd_index)
     return ok
 
 
@@ -436,9 +458,9 @@ def send_codex_usage(usage: dict) -> bool:
 
 def send_static_panels() -> bool:
     ok = True
-    ok &= send_image_panel_if_changed(1, f"{SCREEN_1_PANEL}.gif", render_static_panel(SCREEN_1_PANEL), SCREEN_1_PANEL)
-    ok &= send_image_panel_if_changed(2, f"{SCREEN_2_PANEL}.gif", render_static_panel(SCREEN_2_PANEL), SCREEN_2_PANEL)
-    ok &= send_image_panel_if_changed(3, f"{SCREEN_3_PANEL}.gif", render_static_panel(SCREEN_3_PANEL), SCREEN_3_PANEL)
+    ok &= send_static_panel(1, SCREEN_1_PANEL)
+    ok &= send_static_panel(2, SCREEN_2_PANEL)
+    ok &= send_static_panel(3, SCREEN_3_PANEL)
     return ok
 
 

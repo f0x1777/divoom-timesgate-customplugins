@@ -21,6 +21,7 @@ class UsageDisplayTests(unittest.TestCase):
         main.LAST_LIMIT_ZERO_STATE = {}
         main.LAST_CALENDAR_ALERT_KEYS = set()
         main.LAST_PANEL_DIGESTS = {}
+        main.LAST_IMMUTABLE_PANEL_SENDS = set()
 
     def test_unknown_usage_is_not_known(self):
         usage = {"session": -1.0, "week": -1.0, "design": -1.0}
@@ -149,6 +150,47 @@ class UsageDisplayTests(unittest.TestCase):
 
         self.assertTrue(ok)
         self.assertEqual([call[1:3] for call in fake_divoom.calls], [(1, "ops.gif"), (2, "center.gif"), (3, "calendar.gif")])
+
+    def test_immutable_static_panel_is_sent_once_after_success(self):
+        fake_divoom = types.SimpleNamespace()
+        fake_divoom.calls = []
+        fake_divoom.send_image_panel = (
+            lambda *args: fake_divoom.calls.append(args) or True
+        )
+
+        with patch.dict(os.environ, {"DIVOOM_IMMUTABLE_PANELS": "center,gengar,mascot"}), \
+             patch.dict(sys.modules, {"divoom": fake_divoom}), \
+             patch("main.render_static_panel", return_value=b"center") as render_static_panel, \
+             contextlib.redirect_stdout(io.StringIO()):
+            first = main.send_static_panel(2, "center")
+            second = main.send_static_panel(2, "center")
+
+        self.assertTrue(first)
+        self.assertTrue(second)
+        self.assertEqual(len(fake_divoom.calls), 1)
+        render_static_panel.assert_called_once_with("center")
+
+    def test_failed_immutable_static_panel_retries_later(self):
+        fake_divoom = types.SimpleNamespace()
+        fake_divoom.results = [False, True]
+        fake_divoom.calls = []
+
+        def send_image_panel(*args):
+            fake_divoom.calls.append(args)
+            return fake_divoom.results.pop(0)
+
+        fake_divoom.send_image_panel = send_image_panel
+
+        with patch.dict(os.environ, {"DIVOOM_IMMUTABLE_PANELS": "center,gengar,mascot"}), \
+             patch.dict(sys.modules, {"divoom": fake_divoom}), \
+             patch("main.render_static_panel", return_value=b"center"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            first = main.send_static_panel(2, "center")
+            second = main.send_static_panel(2, "center")
+
+        self.assertFalse(first)
+        self.assertTrue(second)
+        self.assertEqual(len(fake_divoom.calls), 2)
 
     def test_static_panel_supports_generic_aliases(self):
         with patch("dashboard_renderer.render_gengar_panel", return_value=b"center") as render_center, \
