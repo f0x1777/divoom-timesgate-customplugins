@@ -90,6 +90,36 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertGreater(len(gif), 100)
         self.assertEqual(self._gif_frame_count(gif), 6)
 
+    def test_codex_pet_panel_resolves_pet_by_name(self):
+        with TemporaryDirectory() as tmp:
+            pet_dir = Path(tmp) / "pixel"
+            pet_dir.mkdir()
+            path = pet_dir / "custom-sheet.webp"
+            sheet = Image.new("RGBA", (1536, 1872), (0, 0, 0, 0))
+            for col in range(4):
+                for x in range(col * 192 + 48, col * 192 + 144):
+                    for y in range(3 * 208 + 24, 3 * 208 + 120):
+                        sheet.putpixel((x, y), (96, 120 + col * 20, 220, 255))
+            sheet.save(path, format="WEBP", lossless=True)
+            (pet_dir / "pet.json").write_text('{"spritesheetPath":"custom-sheet.webp"}')
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "CODEX_PETS_DIR": tmp,
+                    "CODEX_PET_NAME": "pixel",
+                    "CODEX_PET_ALERTING_FRAMES": "24,25,26,27",
+                    "CODEX_PET_GRID_COLUMNS": "8",
+                    "CODEX_PET_GRID_ROWS": "9",
+                },
+                clear=True,
+            ):
+                gif = dashboard_renderer.render_codex_pet_panel("alerting", {"primary": 0.08, "secondary": 0.83})
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+        self.assertEqual(self._gif_frame_count(gif), 4)
+
     def test_resource_bar_width_is_clamped(self):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)

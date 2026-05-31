@@ -168,20 +168,34 @@ state follows Codex activity: idle, working, or waiting for input.
 
 ```env
 CODEX_USAGE_PANEL_STYLE=pet
-CODEX_PET_SPRITESHEET=~/.codex/pets/cappy/spritesheet.webp
+CODEX_PET_NAME=cappy
+CODEX_PETS_DIR=~/.codex/pets
 CODEX_PET_PANEL_BG=#000000
 CODEX_PET_BADGE_BG=#000000
 CODEX_PET_BADGE_OUTLINE=#14532D
 CODEX_PET_FRAME_MS=180
 ```
 
-Install the default Cappy asset locally:
+Install any Codex pet locally under `~/.codex/pets/<pet-name>`, then set
+`CODEX_PET_NAME` to that folder name. Cappy example:
 
 ```bash
 curl -L "https://codex-pets.net/api/pets/cappy/download?v=1777716783783" \
   -o "/tmp/cappy.codex-pet.zip"
 mkdir -p "$HOME/.codex/pets/cappy"
 unzip -o "/tmp/cappy.codex-pet.zip" -d "$HOME/.codex/pets/cappy"
+```
+
+The renderer reads `pet.json` when present, including `spritesheetPath`. If a
+pet uses a different spritesheet layout, override the grid or frame indexes:
+
+```env
+CODEX_PET_GRID_COLUMNS=8
+CODEX_PET_GRID_ROWS=9
+CODEX_PET_CHILLING_FRAMES=0,1,2,3,4,5
+CODEX_PET_WORKING_FRAMES=56,57,58,59,60,61
+CODEX_PET_ALERTING_FRAMES=24,25,26,27
+# CODEX_PET_SPRITESHEET=~/.codex/pets/custom/spritesheet.webp
 ```
 
 Set `CODEX_USAGE_PANEL_STYLE=classic` to restore the older two-row usage-only

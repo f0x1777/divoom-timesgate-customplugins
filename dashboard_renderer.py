@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from io import BytesIO
 import math
@@ -212,18 +213,12 @@ def render_codex_panel(usage: dict, waiting: bool = False, status: str | None = 
 
 
 def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) -> bytes:
-    spritesheet_path = Path(
-        os.getenv("CODEX_PET_SPRITESHEET", "~/.codex/pets/cappy/spritesheet.webp")
-    ).expanduser()
+    spritesheet_path = _codex_pet_spritesheet_path()
     if not spritesheet_path.exists():
         return render_codex_panel(usage or {}, status=status)
 
     state = status if status in ("chilling", "working", "alerting") else "chilling"
-    frame_indexes = {
-        "chilling": [0, 1, 2, 3, 4, 5],
-        "working": [56, 57, 58, 59, 60, 61],
-        "alerting": [24, 25, 26, 27],
-    }[state]
+    frame_indexes = _codex_pet_frame_indexes(state)
     bg = os.getenv("CODEX_PET_PANEL_BG", "#000000")
     try:
         frame_ms = int(os.getenv("CODEX_PET_FRAME_MS", "180"))
@@ -239,8 +234,9 @@ def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) 
     frames: list[Image.Image] = []
     durations: list[int] = []
     for idx in frame_indexes:
-        col = idx % 8
-        row = idx // 8
+        columns, _ = _codex_pet_grid_size(source)
+        col = idx % columns
+        row = idx // columns
         x = col * cell_w
         y = row * cell_h
         if x + cell_w > source.width or y + cell_h > source.height:
@@ -269,7 +265,65 @@ def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) 
 
 
 def _codex_pet_cell_size(source: Image.Image) -> tuple[int, int]:
-    return source.width // 8, source.height // 9
+    columns, rows = _codex_pet_grid_size(source)
+    return source.width // columns, source.height // rows
+
+
+def _codex_pet_grid_size(source: Image.Image) -> tuple[int, int]:
+    columns = _env_int("CODEX_PET_GRID_COLUMNS", 8)
+    rows = _env_int("CODEX_PET_GRID_ROWS", 9)
+    return max(1, columns), max(1, rows)
+
+
+def _codex_pet_frame_indexes(state: str) -> list[int]:
+    defaults = {
+        "chilling": [0, 1, 2, 3, 4, 5],
+        "working": [56, 57, 58, 59, 60, 61],
+        "alerting": [24, 25, 26, 27],
+    }
+    value = os.getenv(f"CODEX_PET_{state.upper()}_FRAMES")
+    if not value:
+        return defaults[state]
+    parsed = []
+    for part in value.split(","):
+        try:
+            parsed.append(int(part.strip()))
+        except ValueError:
+            continue
+    return parsed or defaults[state]
+
+
+def _codex_pet_spritesheet_path() -> Path:
+    explicit = os.getenv("CODEX_PET_SPRITESHEET", "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+
+    pet_name = os.getenv("CODEX_PET_NAME", "cappy").strip() or "cappy"
+    pets_dir = Path(os.getenv("CODEX_PETS_DIR", "~/.codex/pets")).expanduser()
+    pet_dir = pets_dir / pet_name
+    manifest_path = pet_dir / "pet.json"
+    if manifest_path.exists():
+        try:
+            data = json.loads(manifest_path.read_text())
+            spritesheet = str(data.get("spritesheetPath") or "").strip()
+            if spritesheet:
+                path = Path(spritesheet).expanduser()
+                return path if path.is_absolute() else pet_dir / path
+        except Exception:
+            pass
+
+    for name in ("spritesheet.webp", "spritesheet.png", "spritesheet.gif"):
+        candidate = pet_dir / name
+        if candidate.exists():
+            return candidate
+    return pet_dir / "spritesheet.webp"
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
 
 
 def render_claude_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:
