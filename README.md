@@ -344,12 +344,12 @@ These assets are intentionally local-only so the repo does not bundle licensed
 or personal art:
 
 ```env
-OPENAI_LOGO_GIF_PATH=assets/openai-logo.gif
+OPENAI_LOGO_GIF_PATH=local/openai-logo.gif
 OPENAI_LOGO_ANIMATION=spin-on-wait
 OPENAI_LOGO_SPIN_FRAMES=24
 OPENAI_LOGO_SPIN_FRAME_MS=70
-CENTER_GIF_PATH=assets/center.gif
-STATUS_GIF_PATH=assets/status.gif
+CENTER_GIF_PATH=local/center.gif
+STATUS_GIF_PATH=local/status.gif
 ```
 
 `OPENAI_LOGO_ANIMATION=spin-on-wait` keeps the OpenAI logo static unless Codex

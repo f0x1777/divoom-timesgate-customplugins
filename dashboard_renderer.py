@@ -230,11 +230,13 @@ def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) 
     except Exception:
         return render_codex_panel(usage or {}, status=status)
 
-    cell_w, cell_h = _codex_pet_cell_size(source)
+    columns, rows = _codex_pet_grid_size(source)
+    cell_w, cell_h = _codex_pet_cell_size(source, columns, rows)
     frames: list[Image.Image] = []
     durations: list[int] = []
     for idx in frame_indexes:
-        columns, _ = _codex_pet_grid_size(source)
+        if idx < 0:
+            continue
         col = idx % columns
         row = idx // columns
         x = col * cell_w
@@ -264,15 +266,15 @@ def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) 
     return _save_gif_with_durations(frames, durations, disposal=2)
 
 
-def _codex_pet_cell_size(source: Image.Image) -> tuple[int, int]:
-    columns, rows = _codex_pet_grid_size(source)
-    return source.width // columns, source.height // rows
+def _codex_pet_cell_size(source: Image.Image, columns: int | None = None, rows: int | None = None) -> tuple[int, int]:
+    columns, rows = (columns, rows) if columns is not None and rows is not None else _codex_pet_grid_size(source)
+    return max(1, source.width // columns), max(1, source.height // rows)
 
 
 def _codex_pet_grid_size(source: Image.Image) -> tuple[int, int]:
     columns = _env_int("CODEX_PET_GRID_COLUMNS", 8)
     rows = _env_int("CODEX_PET_GRID_ROWS", 9)
-    return max(1, columns), max(1, rows)
+    return min(max(1, columns), max(1, source.width)), min(max(1, rows), max(1, source.height))
 
 
 def _codex_pet_frame_indexes(state: str) -> list[int]:
@@ -287,9 +289,11 @@ def _codex_pet_frame_indexes(state: str) -> list[int]:
     parsed = []
     for part in value.split(","):
         try:
-            parsed.append(int(part.strip()))
+            idx = int(part.strip())
         except ValueError:
             continue
+        if idx >= 0:
+            parsed.append(idx)
     return parsed or defaults[state]
 
 
@@ -308,7 +312,9 @@ def _codex_pet_spritesheet_path() -> Path:
             spritesheet = str(data.get("spritesheetPath") or "").strip()
             if spritesheet:
                 path = Path(spritesheet).expanduser()
-                return path if path.is_absolute() else pet_dir / path
+                resolved = path if path.is_absolute() else pet_dir / path
+                if resolved.exists():
+                    return resolved
         except Exception:
             pass
 
@@ -347,7 +353,7 @@ def render_claude_panel(usage: dict, waiting: bool = False, status: str | None =
 
 
 def render_openai_logo_panel(waiting: bool = False) -> bytes:
-    path_value = os.getenv("OPENAI_LOGO_GIF_PATH", "assets/openai-logo.gif")
+    path_value = os.getenv("OPENAI_LOGO_GIF_PATH", "local/openai-logo.gif")
     path = Path(path_value).expanduser()
     if not path.exists():
         return render_blank_panel()
@@ -430,7 +436,7 @@ def _render_spinning_mark(mark: Image.Image, waiting: bool = False) -> bytes:
 
 
 def render_clawd_panel(waiting: bool = False) -> bytes:
-    path_value = os.getenv("STATUS_GIF_PATH", os.getenv("CLAWD_GIF_PATH", "assets/status.gif"))
+    path_value = os.getenv("STATUS_GIF_PATH", os.getenv("CLAWD_GIF_PATH", "local/status.gif"))
     path = Path(path_value).expanduser()
     if not path.exists():
         return render_blank_panel()
@@ -516,7 +522,7 @@ def render_blank_panel() -> bytes:
 
 
 def render_gengar_panel() -> bytes:
-    path_value = os.getenv("CENTER_GIF_PATH", os.getenv("GENGAR_GIF_PATH", "assets/center.gif"))
+    path_value = os.getenv("CENTER_GIF_PATH", os.getenv("GENGAR_GIF_PATH", "local/center.gif"))
     path = Path(path_value).expanduser()
     if not path.exists():
         return render_blank_panel()
