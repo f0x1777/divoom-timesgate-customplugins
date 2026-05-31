@@ -37,11 +37,11 @@ The Times Gate has five useful screen slots in this app:
 
 | Screen | Default | Purpose |
 | --- | --- | --- |
-| `0` | Codex usage | Codex 5h, weekly, and context availability |
+| `0` | Codex usage | Codex 5h and weekly availability |
 | `1` | `openai` | Configurable static/ambient panel |
 | `2` | `center` | Configurable static/ambient panel |
 | `3` | `status` | Configurable static/ambient panel |
-| `4` | Claude usage | Claude 5h, weekly, and Sonnet availability |
+| `4` | Claude usage | Claude 5h and weekly availability |
 
 Static panel slots are configured with:
 
@@ -196,7 +196,6 @@ Fallback manual values are supported when browser/API access is unavailable:
 ```env
 CLAUDE_SESSION_PCT=72
 CLAUDE_WEEK_PCT=45
-CLAUDE_SONNET_PCT=47
 ```
 
 Values can be `0.72`, `72`, or `72%`.

@@ -321,7 +321,7 @@ class UsageDisplayTests(unittest.TestCase):
                 {"session": 0.2, "week": 0.5, "design": 0.3, "sonnet": 0.4},
             )
 
-        self.assertEqual(events, [("claude", "weekly", "reset")])
+        self.assertEqual(events, [("claude", "WK", "reset")])
 
     def test_limit_alerts_can_be_disabled_per_provider(self):
         main.LAST_LIMIT_ZERO_STATE["codex:primary"] = False

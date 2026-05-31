@@ -146,7 +146,7 @@ def render_codex_panel(usage: dict, waiting: bool = False) -> bytes:
     draw.text((49, 5), _pct(primary_avail), font=FONT_BIG, fill="#19C37D")
     draw.text((49, 31), _reset_label(usage.get("primary_reset")), font=FONT_MED, fill="#FFFFFF")
     draw.line((6, 61, 122, 61), fill="#17382A")
-    draw.text((7, 70), "Wk", font=FONT_MED, fill="#A9B8B0")
+    draw.text((7, 70), "WK", font=FONT_MED, fill="#A9B8B0")
     draw.text((49, 67), _pct(secondary_avail), font=FONT_BIG, fill="#19C37D")
     draw.text((49, 93), _reset_label(usage.get("secondary_reset")), font=FONT_MED, fill="#FFFFFF")
     if waiting:
@@ -157,22 +157,16 @@ def render_codex_panel(usage: dict, waiting: bool = False) -> bytes:
 def render_claude_panel(usage: dict, waiting: bool = False) -> bytes:
     session_avail = _available_from_used(usage.get("session"))
     week_avail = _available_from_used(usage.get("week"))
-    sonnet_avail = _available_from_used(usage.get("sonnet"))
 
     img = _base("#100B06")
     draw = ImageDraw.Draw(img)
-    rows = [
-        ("5h", session_avail, usage.get("session_reset")),
-        ("Wk", week_avail, usage.get("week_reset")),
-        ("Son", sonnet_avail, usage.get("sonnet_reset")),
-    ]
-    for idx, (label, value, reset) in enumerate(rows):
-        y = 10 + idx * 40
-        draw.text((5, y + 4), label, font=FONT_ROW, fill="#D3B08A")
-        draw.text((36, y), _pct(value), font=FONT_MED, fill="#FFB14A")
-        draw.text((80, y + 3), _reset_label(reset), font=FONT_SMALL, fill="#FFFFFF")
-        if idx < 2:
-            draw.line((5, y + 33, 122, y + 33), fill="#3D230B")
+    draw.text((7, 8), "5h", font=FONT_MED, fill="#D3B08A")
+    draw.text((49, 5), _pct(session_avail), font=FONT_BIG, fill="#FFB14A")
+    draw.text((49, 31), _reset_label(usage.get("session_reset")), font=FONT_MED, fill="#FFFFFF")
+    draw.line((6, 61, 122, 61), fill="#3D230B")
+    draw.text((7, 70), "WK", font=FONT_MED, fill="#D3B08A")
+    draw.text((49, 67), _pct(week_avail), font=FONT_BIG, fill="#FFB14A")
+    draw.text((49, 93), _reset_label(usage.get("week_reset")), font=FONT_MED, fill="#FFFFFF")
     if waiting:
         _draw_waiting_overlay(draw, "#FFB14A")
     return _save_gif([img])

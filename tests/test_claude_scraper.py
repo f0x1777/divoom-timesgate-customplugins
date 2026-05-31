@@ -13,7 +13,6 @@ class ClaudeScraperTests(unittest.TestCase):
         env = {
             "CLAUDE_SESSION_PCT": "72",
             "CLAUDE_WEEK_PCT": "0.45",
-            "CLAUDE_SONNET_PCT": "47%",
         }
 
         with patch.dict(os.environ, env, clear=False):
@@ -22,7 +21,7 @@ class ClaudeScraperTests(unittest.TestCase):
         self.assertEqual(usage["session"], 0.72)
         self.assertEqual(usage["week"], 0.45)
         self.assertEqual(usage["design"], -1.0)
-        self.assertEqual(usage["sonnet"], 0.47)
+        self.assertEqual(usage["sonnet"], -1.0)
         self.assertEqual(usage["source"], "env")
 
     def test_usage_from_api_data(self):

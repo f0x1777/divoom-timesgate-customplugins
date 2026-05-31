@@ -51,13 +51,11 @@ LAST_PANEL_DIGESTS: dict[int, str] = {}
 LIMIT_FIELDS = {
     "codex": (
         ("primary", "5h"),
-        ("secondary", "weekly"),
-        ("context", "context"),
+        ("secondary", "WK"),
     ),
     "claude": (
         ("session", "5h"),
-        ("week", "weekly"),
-        ("sonnet", "sonnet"),
+        ("week", "WK"),
     ),
 }
 
@@ -357,11 +355,11 @@ def send_limit_view(
                 "session": primary_value,
                 "week": secondary_value,
                 "design": -1.0,
-                "sonnet": context_value,
+                "sonnet": -1.0,
                 "session_reset": current_usage.get("session_reset"),
                 "week_reset": current_usage.get("week_reset"),
                 "design_reset": None,
-                "sonnet_reset": current_usage.get("sonnet_reset"),
+                "sonnet_reset": None,
             },
             waiting=claude_waiting_input(),
         )
@@ -410,9 +408,9 @@ def send_claude_usage(usage: dict) -> bool:
         usage["session"],
         "week",
         usage["week"],
-        "sonnet",
-        usage.get("sonnet", -1.0),
-        f"CLAUDE S:{available_pct_str(usage['session'])} W:{available_pct_str(usage['week'])} Son:{available_pct_str(usage.get('sonnet', -1.0))}",
+        None,
+        None,
+        f"CLAUDE 5H:{available_pct_str(usage['session'])} WK:{available_pct_str(usage['week'])}",
     )
 
 
@@ -427,9 +425,9 @@ def send_codex_usage(usage: dict) -> bool:
         usage["primary"],
         "week",
         usage["secondary"],
-        "ctx",
-        usage["context"],
-        f"CODEX P:{available_pct_str(usage['primary'])} W:{available_pct_str(usage['secondary'])} C:{available_pct_str(usage['context'])}",
+        None,
+        None,
+        f"CODEX 5H:{available_pct_str(usage['primary'])} WK:{available_pct_str(usage['secondary'])}",
     )
     if ok:
         LAST_CODEX_DISPLAY_SIGNATURE = codex_display_signature(usage)
@@ -511,15 +509,13 @@ def get_codex_usage(verbose: bool = True) -> dict:
 
 
 def print_claude_usage(usage: dict):
-    print(f"  CLAUDE SESSION AVAILABLE -> {available_pct_str(usage['session'])}")
-    print(f"  CLAUDE WEEK AVAILABLE    -> {available_pct_str(usage['week'])}")
-    print(f"  CLAUDE SONNET AVAILABLE  -> {available_pct_str(usage.get('sonnet', -1.0))}")
+    print(f"  CLAUDE 5H AVAILABLE -> {available_pct_str(usage['session'])}")
+    print(f"  CLAUDE WK AVAILABLE -> {available_pct_str(usage['week'])}")
 
 
 def print_codex_usage(usage: dict):
     print(f"  CODEX 5H AVAILABLE   -> {available_pct_str(usage['primary'])}")
-    print(f"  CODEX WEEK AVAILABLE -> {available_pct_str(usage['secondary'])}")
-    print(f"  CODEX CONTEXT FREE   -> {available_pct_str(usage['context'])}")
+    print(f"  CODEX WK AVAILABLE   -> {available_pct_str(usage['secondary'])}")
 
 
 def codex_display_signature(usage: dict) -> tuple:
@@ -703,11 +699,11 @@ def main():
         print(f"[meter] Enviando prueba al Times Gate ({DIVOOM_IP})...")
         ok = True
         if args.provider in ("claude", "both"):
-            ok &= send_claude_usage({"session": 0.72, "week": 0.45, "design": -1.0, "sonnet": 0.30})
+            ok &= send_claude_usage({"session": 0.72, "week": 0.45, "design": -1.0, "sonnet": -1.0})
         if args.provider == "both" and args.hold_secs > 0:
             time.sleep(args.hold_secs)
         if args.provider in ("codex", "both"):
-            ok &= send_codex_usage({"primary": 0.18, "secondary": 0.06, "context": 0.41})
+            ok &= send_codex_usage({"primary": 0.18, "secondary": 0.06, "context": -1.0})
         print("[meter] Prueba enviada" if ok else "[meter] Prueba fallida")
         return
 
