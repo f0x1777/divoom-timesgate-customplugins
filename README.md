@@ -252,6 +252,10 @@ Use another pet by downloading it into `~/.codex/pets/<pet-name>` and changing:
 CODEX_PET_NAME=<pet-name>
 ```
 
+Any pet from [codex-pets.net](https://codex-pets.net/#/) can be used as long as
+it is downloaded into `CODEX_PETS_DIR` and the folder name matches
+`CODEX_PET_NAME`.
+
 The renderer reads `pet.json` when present, including `spritesheetPath`. You can
 also bypass the manifest:
 
