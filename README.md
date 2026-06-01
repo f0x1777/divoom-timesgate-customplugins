@@ -501,8 +501,8 @@ TAILSCALE_HEALTH=0
 
 Interaction alerts:
 
-- Codex: beep when local session state transitions into `task_complete`.
-- Claude: beep when local session state transitions into assistant `end_turn`.
+- Codex: beeps when local session state transitions into `task_complete`.
+- Claude: beeps when local session state transitions into assistant `end_turn`.
 
 Limit alerts:
 

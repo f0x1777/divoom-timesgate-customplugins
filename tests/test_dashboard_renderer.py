@@ -182,7 +182,6 @@ class DashboardRendererTests(unittest.TestCase):
             sheet.putpixel((48, 24), (96, 220, 120, 255))
             sheet.save(fallback, format="WEBP", lossless=True)
             sheet.save(external, format="WEBP", lossless=True)
-            (pet_dir / "__invalid_spritesheet_path__").write_bytes(external.read_bytes())
 
             with patch.dict("os.environ", {"CODEX_PETS_DIR": tmp, "CODEX_PET_NAME": "pixel"}, clear=True):
                 (pet_dir / "pet.json").write_text(f'{{"spritesheetPath":"{external}"}}')
