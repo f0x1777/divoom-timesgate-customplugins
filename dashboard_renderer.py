@@ -312,8 +312,8 @@ def _codex_pet_spritesheet_path() -> Path:
             spritesheet = str(data.get("spritesheetPath") or "").strip()
             if spritesheet:
                 path = Path(spritesheet).expanduser()
-                resolved = path if path.is_absolute() else pet_dir / path
-                if resolved.exists():
+                resolved = None if path.is_absolute() else _safe_child_path(pet_dir, path)
+                if resolved and resolved.exists():
                     return resolved
         except Exception:
             pass
@@ -330,6 +330,16 @@ def _env_int(name: str, default: int) -> int:
         return int(os.getenv(name, str(default)))
     except ValueError:
         return default
+
+
+def _safe_child_path(parent: Path, child: Path) -> Path:
+    parent_resolved = parent.resolve(strict=False)
+    resolved = (parent / child).resolve(strict=False)
+    try:
+        resolved.relative_to(parent_resolved)
+    except ValueError:
+        return parent / "__invalid_spritesheet_path__"
+    return resolved
 
 
 def render_claude_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:

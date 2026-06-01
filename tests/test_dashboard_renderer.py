@@ -171,6 +171,25 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertIsInstance(gif, bytes)
         self.assertGreater(len(gif), 100)
 
+    def test_codex_pet_manifest_ignores_paths_outside_pet_dir(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pet_dir = root / "pixel"
+            pet_dir.mkdir()
+            fallback = pet_dir / "spritesheet.webp"
+            external = root / "external.webp"
+            sheet = Image.new("RGBA", (1536, 1872), (0, 0, 0, 0))
+            sheet.putpixel((48, 24), (96, 220, 120, 255))
+            sheet.save(fallback, format="WEBP", lossless=True)
+            sheet.save(external, format="WEBP", lossless=True)
+
+            with patch.dict("os.environ", {"CODEX_PETS_DIR": tmp, "CODEX_PET_NAME": "pixel"}, clear=True):
+                (pet_dir / "pet.json").write_text(f'{{"spritesheetPath":"{external}"}}')
+                self.assertEqual(dashboard_renderer._codex_pet_spritesheet_path(), fallback)
+
+                (pet_dir / "pet.json").write_text('{"spritesheetPath":"../external.webp"}')
+                self.assertEqual(dashboard_renderer._codex_pet_spritesheet_path(), fallback)
+
     def test_resource_bar_width_is_clamped(self):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)
