@@ -48,7 +48,7 @@ class ClaudeScraperTests(unittest.TestCase):
     def test_interaction_state_waiting_after_end_turn(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            session_dir = root / "projects" / "-Users-nico-test"
+            session_dir = root / "projects" / "-Users-example-test"
             session_dir.mkdir(parents=True)
             path = session_dir / "session.jsonl"
             events = [
@@ -73,7 +73,7 @@ class ClaudeScraperTests(unittest.TestCase):
     def test_interaction_state_active_after_human_prompt(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            session_dir = root / "projects" / "-Users-nico-test"
+            session_dir = root / "projects" / "-Users-example-test"
             session_dir.mkdir(parents=True)
             path = session_dir / "session.jsonl"
             events = [

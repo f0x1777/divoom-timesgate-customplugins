@@ -90,6 +90,106 @@ class DashboardRendererTests(unittest.TestCase):
         self.assertGreater(len(gif), 100)
         self.assertEqual(self._gif_frame_count(gif), 6)
 
+    def test_codex_pet_panel_resolves_pet_by_name(self):
+        with TemporaryDirectory() as tmp:
+            pet_dir = Path(tmp) / "pixel"
+            pet_dir.mkdir()
+            path = pet_dir / "custom-sheet.webp"
+            sheet = Image.new("RGBA", (1536, 1872), (0, 0, 0, 0))
+            for col in range(4):
+                for x in range(col * 192 + 48, col * 192 + 144):
+                    for y in range(3 * 208 + 24, 3 * 208 + 120):
+                        sheet.putpixel((x, y), (96, 120 + col * 20, 220, 255))
+            sheet.save(path, format="WEBP", lossless=True)
+            (pet_dir / "pet.json").write_text('{"spritesheetPath":"custom-sheet.webp"}')
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "CODEX_PETS_DIR": tmp,
+                    "CODEX_PET_NAME": "pixel",
+                    "CODEX_PET_ALERTING_FRAMES": "24,25,26,27",
+                    "CODEX_PET_GRID_COLUMNS": "8",
+                    "CODEX_PET_GRID_ROWS": "9",
+                },
+                clear=True,
+            ):
+                gif = dashboard_renderer.render_codex_pet_panel("alerting", {"primary": 0.08, "secondary": 0.83})
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+        self.assertEqual(self._gif_frame_count(gif), 4)
+
+    def test_codex_pet_grid_is_clamped_to_spritesheet_size(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tiny.webp"
+            img = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+            img.putpixel((0, 0), (255, 0, 0, 255))
+            img.save(path, format="WEBP", lossless=True)
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "CODEX_PET_SPRITESHEET": str(path),
+                    "CODEX_PET_GRID_COLUMNS": "999",
+                    "CODEX_PET_GRID_ROWS": "999",
+                    "CODEX_PET_WORKING_FRAMES": "0",
+                },
+                clear=True,
+            ):
+                gif = dashboard_renderer.render_codex_pet_panel("working", {"primary": 0.08, "secondary": 0.83})
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+
+    def test_codex_pet_frame_parser_ignores_negative_indexes(self):
+        with patch.dict("os.environ", {"CODEX_PET_WORKING_FRAMES": "-7,1,2"}):
+            self.assertEqual(dashboard_renderer._codex_pet_frame_indexes("working"), [1, 2])
+
+    def test_codex_pet_manifest_missing_spritesheet_uses_builtin_fallback(self):
+        with TemporaryDirectory() as tmp:
+            pet_dir = Path(tmp) / "pixel"
+            pet_dir.mkdir()
+            fallback = pet_dir / "spritesheet.webp"
+            sheet = Image.new("RGBA", (1536, 1872), (0, 0, 0, 0))
+            sheet.putpixel((48, 24), (96, 220, 120, 255))
+            sheet.save(fallback, format="WEBP", lossless=True)
+            (pet_dir / "pet.json").write_text('{"spritesheetPath":"missing.webp"}')
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "CODEX_PETS_DIR": tmp,
+                    "CODEX_PET_NAME": "pixel",
+                    "CODEX_PET_CHILLING_FRAMES": "0",
+                },
+                clear=True,
+            ):
+                self.assertEqual(dashboard_renderer._codex_pet_spritesheet_path(), fallback)
+                gif = dashboard_renderer.render_codex_pet_panel("chilling", {"primary": 0.08, "secondary": 0.83})
+
+        self.assertIsInstance(gif, bytes)
+        self.assertGreater(len(gif), 100)
+
+    def test_codex_pet_manifest_ignores_paths_outside_pet_dir(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pet_dir = root / "pixel"
+            pet_dir.mkdir()
+            fallback = pet_dir / "spritesheet.webp"
+            external = root / "external.webp"
+            sheet = Image.new("RGBA", (1536, 1872), (0, 0, 0, 0))
+            sheet.putpixel((48, 24), (96, 220, 120, 255))
+            sheet.save(fallback, format="WEBP", lossless=True)
+            sheet.save(external, format="WEBP", lossless=True)
+
+            with patch.dict("os.environ", {"CODEX_PETS_DIR": tmp, "CODEX_PET_NAME": "pixel"}, clear=True):
+                (pet_dir / "pet.json").write_text(f'{{"spritesheetPath":"{external}"}}')
+                self.assertEqual(dashboard_renderer._codex_pet_spritesheet_path(), fallback)
+
+                (pet_dir / "pet.json").write_text('{"spritesheetPath":"../external.webp"}')
+                self.assertEqual(dashboard_renderer._codex_pet_spritesheet_path(), fallback)
+
     def test_resource_bar_width_is_clamped(self):
         self.assertEqual(dashboard_renderer._bar_fill_width(-1, 68), 0)
         self.assertEqual(dashboard_renderer._bar_fill_width(50, 68), 34)

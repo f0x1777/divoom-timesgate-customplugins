@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from io import BytesIO
 import math
@@ -212,18 +213,12 @@ def render_codex_panel(usage: dict, waiting: bool = False, status: str | None = 
 
 
 def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) -> bytes:
-    spritesheet_path = Path(
-        os.getenv("CODEX_PET_SPRITESHEET", "~/.codex/pets/cappy/spritesheet.webp")
-    ).expanduser()
+    spritesheet_path = _codex_pet_spritesheet_path()
     if not spritesheet_path.exists():
         return render_codex_panel(usage or {}, status=status)
 
     state = status if status in ("chilling", "working", "alerting") else "chilling"
-    frame_indexes = {
-        "chilling": [0, 1, 2, 3, 4, 5],
-        "working": [56, 57, 58, 59, 60, 61],
-        "alerting": [24, 25, 26, 27],
-    }[state]
+    frame_indexes = _codex_pet_frame_indexes(state)
     bg = os.getenv("CODEX_PET_PANEL_BG", "#000000")
     try:
         frame_ms = int(os.getenv("CODEX_PET_FRAME_MS", "180"))
@@ -235,12 +230,15 @@ def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) 
     except Exception:
         return render_codex_panel(usage or {}, status=status)
 
-    cell_w, cell_h = _codex_pet_cell_size(source)
+    columns, rows = _codex_pet_grid_size(source)
+    cell_w, cell_h = _codex_pet_cell_size(source, columns, rows)
     frames: list[Image.Image] = []
     durations: list[int] = []
     for idx in frame_indexes:
-        col = idx % 8
-        row = idx // 8
+        if idx < 0:
+            continue
+        col = idx % columns
+        row = idx // columns
         x = col * cell_w
         y = row * cell_h
         if x + cell_w > source.width or y + cell_h > source.height:
@@ -268,8 +266,80 @@ def render_codex_pet_panel(status: str = "chilling", usage: dict | None = None) 
     return _save_gif_with_durations(frames, durations, disposal=2)
 
 
-def _codex_pet_cell_size(source: Image.Image) -> tuple[int, int]:
-    return source.width // 8, source.height // 9
+def _codex_pet_cell_size(source: Image.Image, columns: int | None = None, rows: int | None = None) -> tuple[int, int]:
+    columns, rows = (columns, rows) if columns is not None and rows is not None else _codex_pet_grid_size(source)
+    return max(1, source.width // columns), max(1, source.height // rows)
+
+
+def _codex_pet_grid_size(source: Image.Image) -> tuple[int, int]:
+    columns = _env_int("CODEX_PET_GRID_COLUMNS", 8)
+    rows = _env_int("CODEX_PET_GRID_ROWS", 9)
+    return min(max(1, columns), max(1, source.width)), min(max(1, rows), max(1, source.height))
+
+
+def _codex_pet_frame_indexes(state: str) -> list[int]:
+    defaults = {
+        "chilling": [0, 1, 2, 3, 4, 5],
+        "working": [56, 57, 58, 59, 60, 61],
+        "alerting": [24, 25, 26, 27],
+    }
+    value = os.getenv(f"CODEX_PET_{state.upper()}_FRAMES")
+    if not value:
+        return defaults[state]
+    parsed = []
+    for part in value.split(","):
+        try:
+            idx = int(part.strip())
+        except ValueError:
+            continue
+        if idx >= 0:
+            parsed.append(idx)
+    return parsed or defaults[state]
+
+
+def _codex_pet_spritesheet_path() -> Path:
+    explicit = os.getenv("CODEX_PET_SPRITESHEET", "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+
+    pet_name = os.getenv("CODEX_PET_NAME", "cappy").strip() or "cappy"
+    pets_dir = Path(os.getenv("CODEX_PETS_DIR", "~/.codex/pets")).expanduser()
+    pet_dir = pets_dir / pet_name
+    manifest_path = pet_dir / "pet.json"
+    if manifest_path.exists():
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            spritesheet = str(data.get("spritesheetPath") or "").strip()
+            if spritesheet:
+                path = Path(spritesheet).expanduser()
+                resolved = None if path.is_absolute() else _safe_child_path(pet_dir, path)
+                if resolved and resolved.exists():
+                    return resolved
+        except Exception:
+            pass
+
+    for name in ("spritesheet.webp", "spritesheet.png", "spritesheet.gif"):
+        candidate = pet_dir / name
+        if candidate.exists():
+            return candidate
+    return pet_dir / "spritesheet.webp"
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _safe_child_path(parent: Path, child: Path) -> Path | None:
+    parent_resolved = parent.resolve(strict=False)
+    resolved = (parent / child).resolve(strict=False)
+    try:
+        resolved.relative_to(parent_resolved)
+    except ValueError:
+        return None
+    return resolved
 
 
 def render_claude_panel(usage: dict, waiting: bool = False, status: str | None = None) -> bytes:
@@ -293,7 +363,7 @@ def render_claude_panel(usage: dict, waiting: bool = False, status: str | None =
 
 
 def render_openai_logo_panel(waiting: bool = False) -> bytes:
-    path_value = os.getenv("OPENAI_LOGO_GIF_PATH", "assets/openai-logo.gif")
+    path_value = os.getenv("OPENAI_LOGO_GIF_PATH", "local/openai-logo.gif")
     path = Path(path_value).expanduser()
     if not path.exists():
         return render_blank_panel()
@@ -376,7 +446,7 @@ def _render_spinning_mark(mark: Image.Image, waiting: bool = False) -> bytes:
 
 
 def render_clawd_panel(waiting: bool = False) -> bytes:
-    path_value = os.getenv("STATUS_GIF_PATH", os.getenv("CLAWD_GIF_PATH", "assets/status.gif"))
+    path_value = os.getenv("STATUS_GIF_PATH", os.getenv("CLAWD_GIF_PATH", "local/status.gif"))
     path = Path(path_value).expanduser()
     if not path.exists():
         return render_blank_panel()
@@ -462,7 +532,7 @@ def render_blank_panel() -> bytes:
 
 
 def render_gengar_panel() -> bytes:
-    path_value = os.getenv("CENTER_GIF_PATH", os.getenv("GENGAR_GIF_PATH", "assets/center.gif"))
+    path_value = os.getenv("CENTER_GIF_PATH", os.getenv("GENGAR_GIF_PATH", "local/center.gif"))
     path = Path(path_value).expanduser()
     if not path.exists():
         return render_blank_panel()

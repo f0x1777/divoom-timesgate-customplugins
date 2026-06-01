@@ -13,5 +13,5 @@ venv/
 preview*.gif
 preview*.png
 source_*frame.png
-com.nico.*.plist
+com.*.plist
 local/
