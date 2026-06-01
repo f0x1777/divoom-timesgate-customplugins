@@ -308,7 +308,7 @@ def _codex_pet_spritesheet_path() -> Path:
     manifest_path = pet_dir / "pet.json"
     if manifest_path.exists():
         try:
-            data = json.loads(manifest_path.read_text())
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
             spritesheet = str(data.get("spritesheetPath") or "").strip()
             if spritesheet:
                 path = Path(spritesheet).expanduser()
@@ -332,13 +332,13 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-def _safe_child_path(parent: Path, child: Path) -> Path:
+def _safe_child_path(parent: Path, child: Path) -> Path | None:
     parent_resolved = parent.resolve(strict=False)
     resolved = (parent / child).resolve(strict=False)
     try:
         resolved.relative_to(parent_resolved)
     except ValueError:
-        return parent / "__invalid_spritesheet_path__"
+        return None
     return resolved
 
 
